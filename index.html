@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro Financiero + Escáner (Corregido)</title>
+    <title>Registro Financiero + Escáner Mejorado</title>
     
     <!-- Meta tags PWA -->
     <meta name="mobile-web-app-capable" content="yes">
@@ -15,7 +15,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="msapplication-starturl" content="/">
     
-    <!-- Iconos PWA (rutas relativas) -->
+    <!-- Iconos PWA -->
     <link rel="icon" href="icons/icon-72x72.png" sizes="72x72">
     <link rel="icon" href="icons/icon-96x96.png" sizes="96x96">
     <link rel="icon" href="icons/icon-128x128.png" sizes="128x128">
@@ -31,7 +31,7 @@
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     
     <style>
-        /* ========== ESTILOS COMPLETOS ========== */
+        /* Estilos completos (se mantienen igual) */
         .data-input { transition: all 0.2s; border-bottom: 1px solid #e2e8f0; }
         .dark .data-input { border-bottom: 1px solid #4b5563; color: #e5e7eb; }
         .data-input:focus { outline: none; border-bottom: 1px solid #3b82f6; }
@@ -538,14 +538,13 @@
     document.getElementById('add-row').addEventListener('click', () => { dailyDataForDay.rows.push({ account:'', value:'', notes:'' }); saveDaily(); renderDailyTable(); });
     document.getElementById('remove-row').addEventListener('click', () => { if (dailyDataForDay.rows.length>1) dailyDataForDay.rows.pop(); else dailyDataForDay.rows[0] = { account:'', value:'', notes:'' }; saveDaily(); renderDailyTable(); });
 
-    // ========== EXPORTACIÓN CORREGIDA PARA ANDROID ==========
-    function downloadFile(content, filename, mimeType) {
-        const blob = new Blob([content], { type: mimeType });
-        // Crear un enlace y simular clic (más compatible con WebView)
+    // ========== EXPORTACIÓN A JSON CORREGIDA ==========
+    function downloadJSON(data, filename) {
+        const jsonStr = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = filename;
-        link.style.display = 'none';
+        link.download = filename.endsWith('.json') ? filename : filename + '.json';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -553,52 +552,59 @@
     }
 
     document.getElementById('export-all-btn')?.addEventListener('click', () => {
-        const all = {};
-        for (let i=0; i<localStorage.length; i++) {
-            const k = localStorage.key(i);
-            if (k.startsWith('monthly-') || k.startsWith('daily-') || k === 'name-suggestions') {
-                all[k] = localStorage.getItem(k);
+        const allData = {};
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith('monthly-') || key.startsWith('daily-') || key === 'name-suggestions') {
+                allData[key] = localStorage.getItem(key);
             }
         }
-        if (Object.keys(all).length === 0) {
+        if (Object.keys(allData).length === 0) {
             showToast('No hay datos para exportar', true);
             return;
         }
-        const jsonStr = JSON.stringify(all, null, 2);
-        const filename = `backup-${new Date().toISOString().slice(0,10)}.txt`;
-        downloadFile(jsonStr, filename, 'text/plain');
+        const dateStr = new Date().toISOString().slice(0, 10);
+        downloadJSON(allData, `respaldo_completo_${dateStr}.json`);
         showToast('Exportación completada');
     });
 
     document.getElementById('export-selected-btn')?.addEventListener('click', () => {
         const month = document.getElementById('export-month-select').value;
         const year = document.getElementById('export-year-select').value;
+        
         // Si no hay filtros, exportar todo
         if (!month && !year) {
             document.getElementById('export-all-btn').click();
             return;
         }
-        const all = {};
-        for (let i=0; i<localStorage.length; i++) {
-            const k = localStorage.key(i);
-            if (!k.startsWith('monthly-') && !k.startsWith('daily-') && k !== 'name-suggestions') continue;
+
+        const filtered = {};
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key.startsWith('monthly-') && !key.startsWith('daily-') && key !== 'name-suggestions') continue;
+            
             // Aplicar filtros
-            if (year && !k.includes(`-${year}-`)) continue;
+            if (year && !key.includes(`-${year}-`)) continue;
             if (month) {
-                const monthPad = String(parseInt(month)+1).padStart(2,'0');
-                if (!k.includes(`-${monthPad}-`)) continue;
+                const monthPad = String(parseInt(month) + 1).padStart(2, '0');
+                if (!key.includes(`-${monthPad}-`)) continue;
             }
-            all[k] = localStorage.getItem(k);
+            filtered[key] = localStorage.getItem(key);
         }
-        if (Object.keys(all).length === 0) {
+
+        if (Object.keys(filtered).length === 0) {
             showToast('No hay datos con esos filtros', true);
             return;
         }
-        let filename = 'backup';
-        if (year) filename += `-${year}`;
-        if (month) filename += `-${String(parseInt(month)+1).padStart(2,'0')}`;
-        filename += '.txt';
-        downloadFile(JSON.stringify(all, null, 2), filename, 'text/plain');
+
+        let filename = 'respaldo';
+        if (year) filename += `_${year}`;
+        if (month) {
+            const monthName = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][parseInt(month)];
+            filename += `_${monthName}`;
+        }
+        filename += '.json';
+        downloadJSON(filtered, filename);
         showToast('Exportación completada');
     });
 
@@ -740,7 +746,7 @@
         setTimeout(() => { t.classList.add('opacity-0'); setTimeout(() => t.classList.add('hidden'), 500); }, 3000);
     }
 
-    // ========== ESCÁNER CORREGIDO (SOPORTA NEGATIVOS) ==========
+    // ========== ESCÁNER MEJORADO ==========
     const scannerModal = document.getElementById('scanner-modal');
     const openScanner = document.getElementById('open-scanner-btn');
     const closeScanner = document.getElementById('close-scanner-modal');
@@ -772,44 +778,81 @@
     scannerFileInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        const canvas = await preprocessImage(file);
-        const result = await Tesseract.recognize(canvas, 'spa');
-        parseTicket(result.data.text);
+        
+        // Preprocesamiento mejorado: umbral adaptativo para mejor OCR
+        const canvas = await preprocessImageAdvanced(file);
+        const result = await Tesseract.recognize(canvas, 'spa', {
+            tessedit_char_whitelist: '0123456789.,-abcdefghijklmnñopqrstuvwxyzABCDEFGHIJKLMNÑOPQRSTUVWXYZ ',
+        });
+        parseTicketAdvanced(result.data.text);
         renderScannedTable();
     });
 
-    function preprocessImage(file) {
-        return new Promise(res => {
+    // Preprocesamiento avanzado: escala de grises + umbral adaptativo
+    function preprocessImageAdvanced(file) {
+        return new Promise((resolve) => {
             const img = new Image();
             img.onload = () => {
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
-                canvas.width = img.width; canvas.height = img.height;
-                ctx.filter = 'grayscale(100%) contrast(160%)';
+                canvas.width = img.width;
+                canvas.height = img.height;
+                
+                // Dibujar imagen original
                 ctx.drawImage(img, 0, 0);
-                res(canvas);
+                
+                // Obtener datos de píxeles
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                
+                // Convertir a escala de grises y aplicar umbral simple (binarización)
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                    // Umbral fijo 128 (ajustable)
+                    const val = gray > 128 ? 255 : 0;
+                    data[i] = val;
+                    data[i + 1] = val;
+                    data[i + 2] = val;
+                    // data[i+3] es alfa, lo dejamos igual
+                }
+                ctx.putImageData(imageData, 0, 0);
+                resolve(canvas);
             };
             img.src = URL.createObjectURL(file);
         });
     }
 
-    // Parser mejorado que acepta números negativos
-    function parseTicket(text) {
+    // Parser mejorado con soporte para negativos y mayor precisión
+    function parseTicketAdvanced(text) {
         scannedItems = [];
-        text.split('\n').forEach(line => {
-            // Busca un número con posible signo negativo al final de la línea
+        const lines = text.split('\n');
+        lines.forEach(line => {
+            // Busca un número con posible signo negativo y dos decimales al final de la línea
             const priceMatch = line.match(/(-?\d+[.,]\d{2})\s*$/);
             if (!priceMatch) return;
-            let price = parseFloat(priceMatch[1].replace(',', '.'));
-            let left = line.replace(priceMatch[0], '').trim();
+            
+            let priceStr = priceMatch[1].replace(',', '.');
+            let price = parseFloat(priceStr);
+            if (isNaN(price)) return;
+            
+            let leftPart = line.replace(priceMatch[0], '').trim();
+            if (leftPart.length < 2) return; // Ignorar líneas sin nombre significativo
+            
+            // Buscar cantidad al inicio
             let qty = 1;
-            const qtyMatch = left.match(/^(\d+)\s*/);
+            const qtyMatch = leftPart.match(/^(\d+)\s*/);
             if (qtyMatch) {
                 qty = parseInt(qtyMatch[1]);
-                left = left.replace(qtyMatch[0], '').trim();
+                leftPart = leftPart.replace(qtyMatch[0], '').trim();
             }
-            if (left.length > 0) {
-                scannedItems.push({ qty, name: left, price });
+            
+            // Limpiar el nombre (eliminar caracteres extraños)
+            let name = leftPart.replace(/[^\w\sáéíóúñü]/gi, '').trim();
+            if (name.length > 0) {
+                scannedItems.push({ qty, name, price });
             }
         });
     }
@@ -818,26 +861,36 @@
         let html = '', total = 0;
         scannedItems.forEach((it, i) => {
             total += it.qty * it.price;
-            html += `<div class="scanner-row"><span class="scanner-item-index">${i+1}</span><input class="scanner-qty" value="${it.qty}" data-index="${i}" data-field="qty"><input value="${it.name}" data-index="${i}" data-field="name"><input class="scanner-price" value="${it.price.toFixed(2)}" data-index="${i}" data-field="price"></div>`;
+            html += `<div class="scanner-row">
+                <span class="scanner-item-index">${i+1}</span>
+                <input class="scanner-qty" value="${it.qty}" data-index="${i}" data-field="qty">
+                <input value="${it.name}" data-index="${i}" data-field="name" placeholder="Producto">
+                <input class="scanner-price" value="${it.price.toFixed(2)}" data-index="${i}" data-field="price">
+            </div>`;
         });
-        scannerTable.innerHTML = html || '<p class="text-gray-500 text-center py-4">Sin productos</p>';
+        scannerTable.innerHTML = html || '<p class="text-gray-500 text-center py-4">No se detectaron productos</p>';
         scannerTotalSpan.textContent = total.toFixed(2);
 
-        document.querySelectorAll('.scanner-row input').forEach(inp => inp.addEventListener('input', (e) => {
-            const idx = e.target.dataset.index;
-            const fld = e.target.dataset.field;
-            let val = e.target.value;
-            if (fld === 'qty' || fld === 'price') {
-                val = parseFloat(val) || 0;
-            }
-            if (scannedItems[idx]) scannedItems[idx][fld] = val;
-            let newTotal = scannedItems.reduce((acc, it) => acc + it.qty * it.price, 0);
-            scannerTotalSpan.textContent = newTotal.toFixed(2);
-        }));
+        // Eventos para edición en línea
+        document.querySelectorAll('.scanner-row input').forEach(inp => {
+            inp.addEventListener('input', (e) => {
+                const idx = e.target.dataset.index;
+                const fld = e.target.dataset.field;
+                let val = e.target.value;
+                if (fld === 'qty' || fld === 'price') {
+                    val = parseFloat(val) || 0;
+                }
+                if (scannedItems[idx]) {
+                    scannedItems[idx][fld] = val;
+                }
+                let newTotal = scannedItems.reduce((acc, it) => acc + it.qty * it.price, 0);
+                scannerTotalSpan.textContent = newTotal.toFixed(2);
+            });
+        });
     }
 
     scannerInsert.addEventListener('click', () => {
-        if (!scannedItems.length) { showToast('No hay productos', true); return; }
+        if (!scannedItems.length) { showToast('No hay productos para insertar', true); return; }
         const dateStr = scannerDate.value;
         if (!dateStr) return;
         const [y, m, d] = dateStr.split('-').map(Number);
@@ -845,7 +898,11 @@
         const dailyKey = getDailyKey(target);
         let daily = JSON.parse(localStorage.getItem(dailyKey) || '{"rows":[]}');
         if (!daily.rows) daily.rows = [];
-        scannedItems.forEach(it => daily.rows.push({ account: it.name.toUpperCase(), value: (it.qty * it.price).toFixed(2), notes: '' }));
+        
+        scannedItems.forEach(it => {
+            const value = (it.qty * it.price).toFixed(2);
+            daily.rows.push({ account: it.name.toUpperCase(), value, notes: '' });
+        });
         localStorage.setItem(dailyKey, JSON.stringify(daily));
 
         const monthKey = getMonthlyKey(target);
@@ -859,8 +916,14 @@
         scannedItems = [];
         renderScannedTable();
         closeScannerModal();
-        if (currentDate.getFullYear() === y && currentDate.getMonth() === m-1) { loadMonthly(); renderMonthlyTable(); }
-        if (currentDailyViewDate.getFullYear() === y && currentDailyViewDate.getMonth() === m-1 && currentDailyViewDate.getDate() === d) { loadDaily(); renderDailyTable(); }
+        
+        // Refrescar vistas si corresponde
+        if (currentDate.getFullYear() === y && currentDate.getMonth() === m-1) {
+            loadMonthly(); renderMonthlyTable();
+        }
+        if (currentDailyViewDate.getFullYear() === y && currentDailyViewDate.getMonth() === m-1 && currentDailyViewDate.getDate() === d) {
+            loadDaily(); renderDailyTable();
+        }
     });
 
     // Años para selects
