@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro Financiero + Escáner (Exportación .txt)</title>
+    <title>Registro Financiero + Escáner (Exportación forzada)</title>
     
     <!-- Meta tags PWA -->
     <meta name="mobile-web-app-capable" content="yes">
@@ -193,7 +193,7 @@
         </div>
     </div>
 
-    <!-- SECCIÓN EXPORTAR (actualizada a .txt) -->
+    <!-- SECCIÓN EXPORTAR -->
     <div id="export-section" class="hidden">
         <div class="section-title"><h2 class="text-xl font-bold dark:text-white">Exportar Datos</h2><button id="back-from-export" class="flex items-center"><i class="fas fa-arrow-left mr-2"></i> Volver</button></div>
         <div class="bg-white p-4 rounded-lg shadow-md dark:bg-gray-800">
@@ -216,7 +216,7 @@
         </div>
     </div>
 
-    <!-- SECCIÓN IMPORTAR (acepta .txt) -->
+    <!-- SECCIÓN IMPORTAR -->
     <div id="import-section" class="hidden">
         <div class="section-title"><h2 class="text-xl font-bold dark:text-white">Importar Datos</h2><button id="back-from-import" class="flex items-center"><i class="fas fa-arrow-left mr-2"></i> Volver</button></div>
         <div class="bg-white p-4 rounded-lg shadow-md dark:bg-gray-800">
@@ -538,23 +538,39 @@
     document.getElementById('add-row').addEventListener('click', () => { dailyDataForDay.rows.push({ account:'', value:'', notes:'' }); saveDaily(); renderDailyTable(); });
     document.getElementById('remove-row').addEventListener('click', () => { if (dailyDataForDay.rows.length>1) dailyDataForDay.rows.pop(); else dailyDataForDay.rows[0] = { account:'', value:'', notes:'' }; saveDaily(); renderDailyTable(); });
 
-    // ========== EXPORTACIÓN A .txt (FORZANDO DESCARGA) ==========
+    // ========== EXPORTACIÓN CORREGIDA: FORZAR DESCARGA ==========
     function downloadTXT(data, baseFilename) {
         const jsonStr = JSON.stringify(data, null, 2);
-        // Usamos application/octet-stream para forzar descarga, no apertura
-        const blob = new Blob([jsonStr], { type: 'application/octet-stream' });
+        // Usamos text/plain para que sea tratado como texto, pero con download attribute debería forzar descarga
+        const blob = new Blob([jsonStr], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         let filename = baseFilename;
         if (!filename.endsWith('.txt')) filename += '.txt';
-        link.download = filename;
+        link.download = filename; // Atributo clave para forzar descarga
         document.body.appendChild(link);
-        link.click();
+        // Pequeño retraso para asegurar que el DOM esté listo
         setTimeout(() => {
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        }, 100);
+            link.click();
+            // Eliminar el enlace después del clic
+            setTimeout(() => {
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }, 100);
+        }, 50);
+    }
+
+    // Fallback: si el navegador soporta navigator.share, ofrecer compartir como alternativa
+    function shareOrDownload(data, filename) {
+        if (navigator.canShare && navigator.canShare({ files: [new File([JSON.stringify(data, null, 2)], filename, { type: 'text/plain' })] })) {
+            navigator.share({
+                title: 'Respaldo Registro Financiero',
+                files: [new File([JSON.stringify(data, null, 2)], filename, { type: 'text/plain' })]
+            }).catch(() => downloadTXT(data, filename));
+        } else {
+            downloadTXT(data, filename);
+        }
     }
 
     document.getElementById('export-all-btn').addEventListener('click', () => {
@@ -574,8 +590,9 @@
         const month = String(today.getMonth() + 1).padStart(2, '0');
         const day = String(today.getDate()).padStart(2, '0');
         const filename = `backup-${year}-${month}-${day}.txt`;
-        downloadTXT(allData, filename);
-        showToast('Exportación completada');
+        // Intenta compartir primero, si no, descarga
+        shareOrDownload(allData, filename);
+        showToast('Exportación iniciada');
     });
 
     document.getElementById('export-selected-btn').addEventListener('click', () => {
@@ -604,11 +621,11 @@
         if (year) filename += `-${year}`;
         if (month) filename += `-${String(parseInt(month)+1).padStart(2,'0')}`;
         filename += '.txt';
-        downloadTXT(filtered, filename);
-        showToast('Exportación completada');
+        shareOrDownload(filtered, filename);
+        showToast('Exportación iniciada');
     });
 
-    // ========== IMPORTACIÓN (acepta .txt) ==========
+    // ========== IMPORTACIÓN ==========
     const selectImportFile = document.getElementById('select-import-file');
     const importFileInput = document.getElementById('import-file-input');
     const importPreviewModal = document.getElementById('import-preview-modal');
@@ -810,14 +827,8 @@
             let lastDot = priceStr.lastIndexOf('.');
             let lastComma = priceStr.lastIndexOf(',');
             let lastSeparatorPos = -1;
-            let decimalSeparator = '';
-            if (lastDot > lastComma) {
-                lastSeparatorPos = lastDot;
-                decimalSeparator = '.';
-            } else if (lastComma > lastDot) {
-                lastSeparatorPos = lastComma;
-                decimalSeparator = ',';
-            }
+            if (lastDot > lastComma) lastSeparatorPos = lastDot;
+            else if (lastComma > lastDot) lastSeparatorPos = lastComma;
 
             let price;
             if (lastSeparatorPos !== -1) {
@@ -855,9 +866,7 @@
             const idx = e.target.dataset.index;
             const fld = e.target.dataset.field;
             let val = e.target.value;
-            if (fld === 'qty' || fld === 'price') {
-                val = parseFloat(val) || 0;
-            }
+            if (fld === 'qty' || fld === 'price') val = parseFloat(val) || 0;
             if (scannedItems[idx]) scannedItems[idx][fld] = val;
             let newTotal = scannedItems.reduce((acc, it) => acc + it.qty * it.price, 0);
             scannerTotalSpan.textContent = newTotal.toFixed(2);
