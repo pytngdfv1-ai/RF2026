@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro Financiero + Escáner (Corregido)</title>
+    <title>Registro Financiero + Escáner (Exportación corregida)</title>
     
     <!-- Meta tags PWA -->
     <meta name="mobile-web-app-capable" content="yes">
@@ -538,19 +538,28 @@
     document.getElementById('add-row').addEventListener('click', () => { dailyDataForDay.rows.push({ account:'', value:'', notes:'' }); saveDaily(); renderDailyTable(); });
     document.getElementById('remove-row').addEventListener('click', () => { if (dailyDataForDay.rows.length>1) dailyDataForDay.rows.pop(); else dailyDataForDay.rows[0] = { account:'', value:'', notes:'' }; saveDaily(); renderDailyTable(); });
 
-    // ========== EXPORTACIÓN CONFIABLE PARA ANDROID ==========
+    // ========== EXPORTACIÓN MEJORADA PARA ANDROID ==========
     function downloadJSON(data, filename) {
         const jsonStr = JSON.stringify(data, null, 2);
-        const blob = new Blob([jsonStr], { type: 'application/json' });
+        // Usar application/octet-stream para forzar descarga
+        const blob = new Blob([jsonStr], { type: 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename.endsWith('.json') ? filename : filename + '.json';
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        
+        // Intentar con window.open (funciona en muchos WebViews)
+        const newWindow = window.open(url, '_blank');
+        if (!newWindow) {
+            // Si fue bloqueado, usar el método de enlace
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        // Liberar memoria después de un tiempo
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
     document.getElementById('export-all-btn').addEventListener('click', () => {
@@ -738,7 +747,7 @@
         setTimeout(() => { t.classList.add('opacity-0'); setTimeout(() => t.classList.add('hidden'), 500); }, 3000);
     }
 
-    // ========== ESCÁNER CON PARSER INTELIGENTE (soporta negativos y evita errores de escala) ==========
+    // ========== ESCÁNER CON PARSER INTELIGENTE ==========
     const scannerModal = document.getElementById('scanner-modal');
     const openScanner = document.getElementById('open-scanner-btn');
     const closeScanner = document.getElementById('close-scanner-modal');
@@ -801,7 +810,6 @@
             if (line.length === 0) return;
 
             // Busca un número al final de la línea que pueda tener signo negativo y dos decimales
-            // El patrón permite dígitos, puntos, comas y un posible signo menos al inicio.
             const priceMatch = line.match(/(-?[\d.,]+)\s*$/);
             if (!priceMatch) return;
 
