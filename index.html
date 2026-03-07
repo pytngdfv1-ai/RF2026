@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro Financiero + Escáner (Corregido)</title>
+    <title>Registro Financiero + Escáner (Exportación corregida)</title>
     
     <!-- Meta tags PWA -->
     <meta name="mobile-web-app-capable" content="yes">
@@ -15,7 +15,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="msapplication-starturl" content="/">
     
-    <!-- Iconos PWA (rutas relativas) -->
+    <!-- Iconos PWA -->
     <link rel="icon" href="icons/icon-72x72.png" sizes="72x72">
     <link rel="icon" href="icons/icon-96x96.png" sizes="96x96">
     <link rel="icon" href="icons/icon-128x128.png" sizes="128x128">
@@ -31,7 +31,7 @@
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     
     <style>
-        /* ========== ESTILOS COMPLETOS (sin cambios) ========== */
+        /* ========== ESTILOS COMPLETOS ========== */
         .data-input { transition: all 0.2s; border-bottom: 1px solid #e2e8f0; }
         .dark .data-input { border-bottom: 1px solid #4b5563; color: #e5e7eb; }
         .data-input:focus { outline: none; border-bottom: 1px solid #3b82f6; }
@@ -538,21 +538,29 @@
     document.getElementById('add-row').addEventListener('click', () => { dailyDataForDay.rows.push({ account:'', value:'', notes:'' }); saveDaily(); renderDailyTable(); });
     document.getElementById('remove-row').addEventListener('click', () => { if (dailyDataForDay.rows.length>1) dailyDataForDay.rows.pop(); else dailyDataForDay.rows[0] = { account:'', value:'', notes:'' }; saveDaily(); renderDailyTable(); });
 
-    // ========== EXPORTACIÓN A JSON (CORREGIDA: descarga directa) ==========
-    function downloadJSON(data, filename) {
+    // ========== EXPORTACIÓN CORREGIDA: descarga directa de .json con fecha ==========
+    // Función auxiliar para descargar JSON (definida ANTES de usarla)
+    function downloadJSON(data, baseFilename) {
         const jsonStr = JSON.stringify(data, null, 2);
         const blob = new Blob([jsonStr], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = filename.endsWith('.json') ? filename : filename + '.json';
-        link.style.display = 'none';
+        // Asegurar extensión .json y agregar fecha si no tiene
+        let filename = baseFilename;
+        if (!filename.endsWith('.json')) filename += '.json';
+        link.download = filename;
+        // Añadir al DOM, hacer clic y luego limpiar
         document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        // Pequeño retraso para asegurar que el clic se procese
+        setTimeout(() => {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }, 100);
     }
 
+    // Exportar Todo
     document.getElementById('export-all-btn').addEventListener('click', () => {
         const allData = {};
         for (let i = 0; i < localStorage.length; i++) {
@@ -565,16 +573,22 @@
             showToast('No hay datos para exportar', true);
             return;
         }
-        const date = new Date().toISOString().slice(0,10);
-        downloadJSON(allData, `backup-${date}.json`);
+        // Generar nombre con fecha actual
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const filename = `backup-${year}-${month}-${day}.json`;
+        downloadJSON(allData, filename);
         showToast('Exportación completada');
     });
 
+    // Exportar Selección
     document.getElementById('export-selected-btn').addEventListener('click', () => {
         const month = document.getElementById('export-month-select').value;
         const year = document.getElementById('export-year-select').value;
+        // Si no hay filtros, exportar todo
         if (!month && !year) {
-            // Si no hay filtros, exportar todo
             document.getElementById('export-all-btn').click();
             return;
         }
@@ -582,7 +596,9 @@
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
             if (!key.startsWith('monthly-') && !key.startsWith('daily-') && key !== 'name-suggestions') continue;
+            // Aplicar filtro de año
             if (year && !key.includes(`-${year}-`)) continue;
+            // Aplicar filtro de mes
             if (month) {
                 const monthPad = String(parseInt(month) + 1).padStart(2, '0');
                 if (!key.includes(`-${monthPad}-`)) continue;
@@ -593,6 +609,7 @@
             showToast('No hay datos con esos filtros', true);
             return;
         }
+        // Construir nombre
         let filename = 'backup';
         if (year) filename += `-${year}`;
         if (month) filename += `-${String(parseInt(month)+1).padStart(2,'0')}`;
@@ -601,7 +618,7 @@
         showToast('Exportación completada');
     });
 
-    // ========== IMPORTACIÓN (acepta .json) ==========
+    // ========== IMPORTACIÓN ==========
     const selectImportFile = document.getElementById('select-import-file');
     const importFileInput = document.getElementById('import-file-input');
     const importPreviewModal = document.getElementById('import-preview-modal');
