@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro Financiero + Escáner (Exportación .txt)</title>
+    <title>Registro Financiero + Escáner (Exportación forzada)</title>
     
     <!-- Meta tags PWA -->
     <meta name="mobile-web-app-capable" content="yes">
@@ -538,10 +538,10 @@
     document.getElementById('add-row').addEventListener('click', () => { dailyDataForDay.rows.push({ account:'', value:'', notes:'' }); saveDaily(); renderDailyTable(); });
     document.getElementById('remove-row').addEventListener('click', () => { if (dailyDataForDay.rows.length>1) dailyDataForDay.rows.pop(); else dailyDataForDay.rows[0] = { account:'', value:'', notes:'' }; saveDaily(); renderDailyTable(); });
 
-    // ========== EXPORTACIÓN A .txt (FORZANDO DESCARGA) ==========
+    // ========== EXPORTACIÓN MEJORADA (FORZA DESCARGA) ==========
     function downloadTXT(data, baseFilename) {
         const jsonStr = JSON.stringify(data, null, 2);
-        // Usamos application/octet-stream para forzar descarga
+        // Usamos application/octet-stream para evitar que el navegador intente mostrar el contenido
         const blob = new Blob([jsonStr], { type: 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -549,12 +549,23 @@
         let filename = baseFilename;
         if (!filename.endsWith('.txt')) filename += '.txt';
         link.download = filename;
+        // Añadimos al DOM y forzamos un clic con evento de ratón para mayor compatibilidad
         document.body.appendChild(link);
-        link.click();
+        // Pequeño retraso para asegurar que el DOM se actualice
         setTimeout(() => {
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        }, 100);
+            // Usamos dispatchEvent para simular un clic real
+            const event = new MouseEvent('click', {
+                view: window,
+                bubbles: true,
+                cancelable: true
+            });
+            link.dispatchEvent(event);
+            // Eliminamos el enlace después de un breve tiempo
+            setTimeout(() => {
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }, 100);
+        }, 50);
     }
 
     document.getElementById('export-all-btn').addEventListener('click', () => {
@@ -607,7 +618,7 @@
         showToast('Exportación completada');
     });
 
-    // ========== IMPORTACIÓN (acepta .txt y .json) ==========
+    // ========== IMPORTACIÓN ==========
     const selectImportFile = document.getElementById('select-import-file');
     const importFileInput = document.getElementById('import-file-input');
     const importPreviewModal = document.getElementById('import-preview-modal');
@@ -745,7 +756,7 @@
         setTimeout(() => { t.classList.add('opacity-0'); setTimeout(() => t.classList.add('hidden'), 500); }, 3000);
     }
 
-    // ========== ESCÁNER CORREGIDO ==========
+    // ========== ESCÁNER ==========
     const scannerModal = document.getElementById('scanner-modal');
     const openScanner = document.getElementById('open-scanner-btn');
     const closeScanner = document.getElementById('close-scanner-modal');
@@ -811,13 +822,10 @@
             let lastDot = priceStr.lastIndexOf('.');
             let lastComma = priceStr.lastIndexOf(',');
             let lastSeparatorPos = -1;
-            let decimalSeparator = '';
             if (lastDot > lastComma) {
                 lastSeparatorPos = lastDot;
-                decimalSeparator = '.';
             } else if (lastComma > lastDot) {
                 lastSeparatorPos = lastComma;
-                decimalSeparator = ',';
             }
 
             let price;
