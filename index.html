@@ -3,905 +3,375 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro Financiero + Escáner (Corrección final)</title>
-    
-    <!-- Meta tags PWA -->
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="application-name" content="Registro Financiero">
-    <meta name="apple-mobile-web-app-title" content="Registro Financiero">
-    <meta name="theme-color" content="#3b82f6" id="theme-color">
-    <meta name="msapplication-navbutton-color" content="#3b82f6">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="msapplication-starturl" content="/">
-    
-    <!-- Iconos PWA (rutas relativas) -->
-    <link rel="icon" href="icons/icon-72x72.png" sizes="72x72">
-    <link rel="icon" href="icons/icon-96x96.png" sizes="96x96">
-    <link rel="icon" href="icons/icon-128x128.png" sizes="128x128">
-    <link rel="icon" href="icons/icon-144x144.png" sizes="144x144">
-    <link rel="icon" href="icons/icon-152x152.png" sizes="152x152">
-    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
-    <link rel="manifest" href="manifest.json">
-    
-    <!-- Estilos y librerías -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Tesseract.js para OCR -->
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-    
+    <title>Corrector de cifras OCR y exportador TXT</title>
     <style>
-        /* Estilos completos (sin cambios, pero los incluyo por integridad) */
-        .data-input { transition: all 0.2s; border-bottom: 1px solid #e2e8f0; }
-        .dark .data-input { border-bottom: 1px solid #4b5563; color: #e5e7eb; }
-        .data-input:focus { outline: none; border-bottom: 1px solid #3b82f6; }
-        .status-pending { background-color: #ffedd5; }
-        .dark .status-pending { background-color: #7c2d12; color: #ffedd5; }
-        .status-completed { background-color: #dcfce7; }
-        .dark .status-completed { background-color: #166534; color: #dcfce7; }
-        .status-verified { background-color: #dbeafe; }
-        .dark .status-verified { background-color: #1e3a8a; color: #bfdbfe; }
-        .status-rejected { background-color: #fee2e2; }
-        .dark .status-rejected { background-color: #991b1b; color: #fee2e2; }
-        .current-day { background-color: #dbeafe; }
-        .dark .current-day { background-color: #1e3a8a; color: #e5e7eb; }
-        .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
-        .total-row { background-color: #f0fdf4; }
-        .dark .total-row { background-color: #166534; color: #e5e7eb; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .menu-item { transition: all 0.2s ease; border-radius: 0.375rem; }
-        .menu-item:hover { background-color: #f3f4f6; transform: translateY(-1px); }
-        .dark .menu-item:hover { background-color: #374151; color: #e5e7eb; }
-        .menu-item.active { background-color: #e0e7ff; color: #4f46e5; }
-        .dark .menu-item.active { background-color: #1e3a8a; color: #bfdbfe; }
-        .menu-divider { border-top: 1px solid #e5e7eb; }
-        .dark .menu-divider { border-top: 1px solid #4b5563; }
-        #installAppBtnDesktop, #mobile-install-btn { display: none; }
-        .modal-overlay { transition: opacity 0.3s ease; }
-        .modal-content { transition: transform 0.3s ease, opacity 0.3s ease; }
-        .main-menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; padding: 1rem; }
-        .menu-card { background: white; border-radius: 0.5rem; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); transition: all 0.2s ease; display: flex; flex-direction: column; align-items: center; text-align: center; cursor: pointer; }
-        .dark .menu-card { background: #1f2937; color: #e5e7eb; }
-        .menu-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
-        .menu-card i { font-size: 2rem; margin-bottom: 1rem; color: #3b82f6; }
-        .dark .menu-card i { color: #60a5fa; }
-        .menu-card h3 { font-weight: 600; margin-bottom: 0.5rem; color: #1f2937; }
-        .dark .menu-card h3 { color: #f3f4f6; }
-        .menu-card p { color: #6b7280; }
-        .dark .menu-card p { color: #9ca3af; }
-        .back-to-menu { position: fixed; bottom: 1rem; right: 1rem; z-index: 40; background: #3b82f6; color: white; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); transition: all 0.2s ease; }
-        .back-to-menu:hover { background: #2563eb; transform: scale(1.05); }
-        .section-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-        .section-title button { background: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 0.375rem; font-size: 0.875rem; }
-        .section-title button:hover { background: #2563eb; }
-        .menu-card.active { border: 2px solid #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
-        .dark .menu-card.active { border-color: #60a5fa; }
-        
-        /* Estilos escáner */
-        .scanner-row { display: flex; gap: 8px; margin: 8px 0; align-items: center; }
-        .scanner-row input { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #0ff3; background: #020617; color: #fff; }
-        .scanner-qty { max-width: 70px; text-align: center; }
-        .scanner-price { max-width: 100px; text-align: right; }
-        .scanner-total { text-align: right; font-size: 22px; margin-top: 10px; color: #fff; }
-        .scanner-item-index { color: #9ca3af; width: 25px; text-align: center; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        h1, h2 {
+            color: #2c3e50;
+        }
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            font-family: monospace;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px 5px 5px 0;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            margin-top: 15px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+        }
+        .total {
+            font-weight: bold;
+            background-color: #ecf0f1;
+        }
+        .advertencia {
+            color: #e74c3c;
+            font-size: 0.9em;
+        }
+        .info {
+            color: #27ae60;
+        }
     </style>
 </head>
-<body class="p-4 max-w-6xl mx-auto bg-gray-50 font-sans transition-colors duration-200">
+<body>
+    <h1>Corrección de cifras escaneadas y exportación a TXT</h1>
 
-<!-- ========== MENÚ PRINCIPAL ========== -->
-<div id="main-menu" class="bg-white rounded-lg shadow-md p-6 dark:bg-gray-800 dark:text-gray-200">
-    <div class="flex justify-between items-center mb-8">
-        <div class="flex items-center space-x-2">
-            <div class="text-blue-600 p-2 rounded-lg bg-blue-100 dark:bg-blue-900 dark:text-blue-300">
-                <i class="fas fa-chart-line fa-lg"></i>
-            </div>
-            <h1 class="text-2xl font-bold text-gray-800 ml-2 dark:text-white">Registro Financiero</h1>
-        </div>
-        <button id="installAppBtnDesktop" class="menu-item px-3 py-2 flex items-center space-x-2 text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400">
-            <i class="fas fa-download"></i>
-            <span class="text-sm">Instalar App</span>
-        </button>
+    <div class="panel">
+        <h2>Paso 1: Pegar el texto extraído por OCR</h2>
+        <textarea id="ocrInput" placeholder="Pega aquí el texto obtenido del escaneo...">Cliente    Contado/Rec.
+
+AUGUSTO CHIAVORINO    328.00
+CAMARGO    1153.00
+FLAVIA RODRIGUEZ    616.00
+CLIENTE EVENTUAL    2083.00
+NUEVA ERA    328.00
+KIOSCO MAJO    574.00
+ALM. PRIMAVERA    706.00
+ANA MARIA    2288.00
+ANGEL DAVID ARABALLO  2720.00
+CLIENTE EVENTUAL    973.00
+CARLITOS    497.00
+CARLITOS    466.00
+LEITES    381.00
+CLIENTE EVENTUAL    216.00
+CLIENTE EVENTUAL    1122.00
+CLIENTE EVENTUAL    471.00
+ALM. GABRIELA    2040.00
+CLIENTE EVENTUAL    678.00
+GABRIELA ROCHA    0.00
+CLIENTE EVENTUAL    486.00
+ALM. Y SALON LA FAMI 985.00
+PANADERIA TINA    1053.00
+BIOTIN SA    0.00
+BIOTIN SA    5025.00
+JAVIER A'HIPOGROSSO  6537.00
+JAVIER A'HIPOGROSSO  0.00
+
+===========
+31726.00</textarea>
+        <br>
+        <button id="procesarBtn">Procesar y corregir cifras</button>
+        <span id="mensajeProcesado" class="info"></span>
     </div>
 
-    <div class="main-menu">
-        <div class="menu-card" id="go-to-daily"><i class="fas fa-calendar-day"></i><h3>Registro Diario</h3><p>Ingresa y gestiona tus registros día por día</p></div>
-        <div class="menu-card" id="go-to-monthly"><i class="fas fa-calendar-alt"></i><h3>Registro Mensual</h3><p>Visualiza y edita todos los datos organizados por mes</p></div>
-        <div class="menu-card" id="go-to-scanner"><i class="fas fa-camera"></i><h3>Escaneo</h3><p>Escanea tickets y agrégalos al registro diario</p></div>
-        <div class="menu-card" id="go-to-export"><i class="fas fa-file-export"></i><h3>Exportar Datos</h3><p>Guarda una copia de seguridad (.json)</p></div>
-        <div class="menu-card" id="go-to-import"><i class="fas fa-file-import"></i><h3>Importar Datos</h3><p>Recupera información desde un archivo .json</p></div>
-        <div class="menu-card" id="go-to-settings"><i class="fas fa-cog"></i><h3>Configuración</h3><p>Personaliza la aplicación a tus preferencias</p></div>
-        <div class="menu-card" id="go-to-help"><i class="fas fa-question-circle"></i><h3>Ayuda</h3><p>Guías y soporte para usar la aplicación</p></div>
-    </div>
-</div>
-
-<!-- ========== CONTENIDO DE LA APP ========== -->
-<div id="app-content" class="hidden">
-
-    <!-- SELECTOR MES/AÑO -->
-    <div class="flex items-center justify-between mb-4 bg-white p-3 rounded-lg shadow-sm dark:bg-gray-800 dark:text-gray-200">
-        <button id="prev-month" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"><i class="fas fa-chevron-left dark:text-gray-300"></i></button>
-        <div class="flex items-center gap-2">
-            <select id="month-select" class="p-2 border border-gray-300 rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option><option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option><option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option><option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
-            </select>
-            <select id="year-select" class="p-2 border border-gray-300 rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"></select>
-        </div>
-        <h2 id="current-month-display" class="text-lg font-semibold text-gray-700 hidden sm:block dark:text-gray-300">Junio 2023</h2>
-        <button id="next-month" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"><i class="fas fa-chevron-right dark:text-gray-300"></i></button>
+    <div class="panel">
+        <h2>Paso 2: Resultado corregido</h2>
+        <p><strong>Total calculado:</strong> <span id="totalCalculado">0.00</span> | <strong>Total extraído:</strong> <span id="totalExtraido">0.00</span> <span id="verificacionTotal"></span></p>
+        <table id="tablaResultados">
+            <thead>
+                <tr>
+                    <th>Cliente</th>
+                    <th>Monto (corregido)</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
     </div>
 
-    <!-- SECCIÓN ESCANEO -->
-    <div id="scanner-section" class="hidden">
-        <div class="section-title">
-            <h2 class="text-xl font-bold text-gray-800 dark:text-white">Escaneo de Tickets</h2>
-            <button id="back-from-scanner" class="flex items-center"><i class="fas fa-arrow-left mr-2"></i> Volver al Menú</button>
-        </div>
-        <div class="flex justify-center items-center min-h-[200px] bg-white rounded-lg shadow-md dark:bg-gray-800">
-            <button id="open-scanner-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 px-8 rounded-lg shadow-md transition flex items-center gap-3 text-lg">
-                <i class="fas fa-camera fa-xl"></i> Escanear Ticket
-            </button>
-        </div>
+    <div class="panel">
+        <h2>Paso 3: Exportar a archivo .txt</h2>
+        <label for="mesSelector">Filtrar por mes (opcional, formato YYYY-MM):</label>
+        <input type="month" id="mesSelector" value="2025-03">
+        <button id="btnDescargarTodo">Descargar todo (.txt)</button>
+        <button id="btnDescargarMes">Descargar mes seleccionado (.txt)</button>
+        <p class="advertencia">* Si los datos no tienen fecha, se asignará automáticamente el mes actual para el filtro.</p>
     </div>
 
-    <!-- TABLA MENSUAL -->
-    <div id="monthly-table-container" class="bg-white rounded-lg shadow-md overflow-hidden mb-6 hidden dark:bg-gray-800">
-        <div class="section-title p-3 border-b dark:border-gray-700">
-            <h2 class="text-xl font-bold text-gray-800 dark:text-white">Registro Mensual</h2>
-            <button id="back-from-monthly" class="flex items-center"><i class="fas fa-arrow-left mr-2"></i> Volver al Menú</button>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="min-w-full">
-                <thead class="bg-gray-100 dark:bg-gray-700"><tr class="text-left text-sm text-gray-600 uppercase dark:text-gray-300"><th class="p-3">Día</th><th class="p-3">Valor</th><th class="p-3">Notas</th><th class="p-3">Estado</th></tr></thead>
-                <tbody id="table-body" class="divide-y divide-gray-200 dark:divide-gray-700 dark:text-gray-200"></tbody>
-                <tfoot class="bg-gray-50 dark:bg-gray-700">
-                    <tr class="total-row"><td class="p-3 font-semibold">Total</td><td id="monthly-total" class="p-3 font-semibold">0.00</td><td class="p-3 text-xs italic">2.5% del 78%</td><td id="monthly-calc" class="p-3 font-semibold">0.00</td></tr>
-                </tfoot>
-            </table>
-        </div>
-    </div>
+    <script>
+        // ====================================================
+        // 1. FUNCIONES DE CORRECCIÓN DE CIFRAS (OCR)
+        // ====================================================
 
-    <!-- SECCIÓN DIARIA -->
-    <div id="daily-section" class="hidden">
-        <div class="section-title p-3 border-b dark:border-gray-700">
-            <h2 class="text-xl font-bold dark:text-white">Registro Diario</h2>
-            <button id="back-from-daily" class="flex items-center"><i class="fas fa-arrow-left mr-2"></i> Volver al Menú</button>
-        </div>
-        <div class="bg-white p-4 rounded-lg shadow-md mb-6 flex flex-col sm:flex-row items-center gap-3 dark:bg-gray-800">
-            <input type="text" id="dailyQuickInsertName" placeholder="Cuenta" class="flex-1 p-2 border rounded-md uppercase dark:bg-gray-700 dark:border-gray-600 dark:text-white" list="dailyAccountSuggestions" oninput="this.value=this.value.toUpperCase()">
-            <datalist id="dailyAccountSuggestions"></datalist>
-            <input type="number" id="dailyQuickInsertValue" placeholder="Valor" class="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" step="any">
-            <button id="dailyQuickInsertBtn" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 w-full sm:w-auto"><i class="fas fa-plus-circle"></i> Agregar</button>
-        </div>
-        <div class="bg-white rounded-lg shadow-md overflow-hidden dark:bg-gray-800">
-            <div class="flex flex-col sm:flex-row items-center justify-between p-3 border-b bg-gray-50 dark:bg-gray-700 dark:border-gray-600">
-                <h3 class="text-lg font-semibold mb-2 sm:mb-0 dark:text-white">Detalle Diario</h3>
-                <div class="flex items-center gap-2">
-                    <button id="prev-day" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"><i class="fas fa-chevron-left dark:text-gray-300"></i></button>
-                    <span id="current-day-display" class="font-medium w-40 text-center dark:text-gray-200">1 de Junio 2023</span>
-                    <button id="next-day" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"><i class="fas fa-chevron-right dark:text-gray-300"></i></button>
-                </div>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="min-w-full">
-                    <thead class="bg-gray-100 dark:bg-gray-700"><tr class="dark:text-gray-300"><th class="p-3">#</th><th class="p-3">Cuenta</th><th class="p-3">Valor</th><th class="p-3">Notas</th><th class="p-3 text-center">Acciones</th></tr></thead>
-                    <tbody id="daily-table-body" class="divide-y divide-gray-200 dark:divide-gray-700 dark:text-gray-200"></tbody>
-                    <tfoot class="bg-gray-50 dark:bg-gray-700">
-                        <tr><td colspan="2" class="p-3 text-right font-semibold">Total Diario:</td><td id="daily-col2-total" class="p-3 font-semibold">0.00</td><td></td><td class="p-3 flex justify-center gap-2"><button id="add-row" class="p-2 text-green-600 hover:text-green-700"><i class="fas fa-plus-circle fa-lg"></i></button><button id="remove-row" class="p-2 text-red-600 hover:text-red-700"><i class="fas fa-minus-circle fa-lg"></i></button></td></tr>
-                    </tfoot>
-                </table>
-            </div>
-        </div>
-    </div>
+        /**
+         * Corrige un número mal detectado por OCR.
+         * Ejemplo: "23400.00" -> "234.00" (si se espera que tenga dos decimales)
+         * Estrategia: Si el número tiene un solo punto decimal y la parte entera es larga,
+         * se asume que falta el separador de miles y se inserta un punto cada tres dígitos desde la derecha,
+         * pero sin modificar los decimales. En realidad, lo más común es que el OCR haya omitido el punto decimal
+         * y haya concatenado los dígitos. Por ejemplo, "234.00" mal leído como "23400" (sin punto) o "23400.00".
+         * Para este caso, si la cadena termina en ".00" y tiene más de 2 dígitos antes del punto,
+         * puede que el punto decimal esté corrido. Intentaremos detectar patrones comunes.
+         */
+        function corregirNumeroOCR(valor) {
+            if (typeof valor !== 'string') return valor.toString();
+            valor = valor.trim().replace(/\s+/g, '');
+            // Si está vacío o no es número, retornar original
+            if (!/^-?\d*\.?\d+$/.test(valor) && !/^-?\d+$/.test(valor)) return valor;
 
-    <!-- SECCIÓN EXPORTAR -->
-    <div id="export-section" class="hidden">
-        <div class="section-title"><h2 class="text-xl font-bold dark:text-white">Exportar Datos</h2><button id="back-from-export" class="flex items-center"><i class="fas fa-arrow-left mr-2"></i> Volver</button></div>
-        <div class="bg-white p-4 rounded-lg shadow-md dark:bg-gray-800">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 dark:bg-blue-900 dark:border-blue-700">
-                    <h4 class="font-medium text-blue-700 mb-2 dark:text-blue-300">Exportar Todo</h4>
-                    <button id="export-all-btn" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"><i class="fas fa-file-export mr-2"></i> Exportar Todo (.json)</button>
-                </div>
-                <div class="bg-green-50 p-4 rounded-lg border border-green-200 dark:bg-green-900 dark:border-green-700">
-                    <h4 class="font-medium text-green-700 mb-2 dark:text-green-300">Exportar Selección</h4>
-                    <div class="flex space-x-2 mb-2">
-                        <select id="export-month-select" class="flex-1 p-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                            <option value="">Todos los meses</option><option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option><option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option><option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option><option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
-                        </select>
-                        <select id="export-year-select" class="flex-1 p-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"></select>
-                    </div>
-                    <button id="export-selected-btn" class="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"><i class="fas fa-file-export mr-2"></i> Exportar Selección (.json)</button>
-                </div>
-            </div>
-        </div>
-    </div>
+            // Caso 1: Tiene punto decimal
+            if (valor.includes('.')) {
+                let partes = valor.split('.');
+                let enteros = partes[0];
+                let decimales = partes[1] || '';
 
-    <!-- SECCIÓN IMPORTAR -->
-    <div id="import-section" class="hidden">
-        <div class="section-title"><h2 class="text-xl font-bold dark:text-white">Importar Datos</h2><button id="back-from-import" class="flex items-center"><i class="fas fa-arrow-left mr-2"></i> Volver</button></div>
-        <div class="bg-white p-4 rounded-lg shadow-md dark:bg-gray-800">
-            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center dark:border-gray-600">
-                <i class="fas fa-file-import text-4xl text-blue-500 mb-3"></i>
-                <p class="text-sm text-gray-500 mb-4 dark:text-gray-400">Selecciona un archivo .json con respaldo de datos</p>
-                <button id="select-import-file" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"><i class="fas fa-folder-open mr-2"></i> Seleccionar Archivo</button>
-                <input type="file" id="import-file-input" class="hidden" accept=".json">
-            </div>
-        </div>
-    </div>
-
-    <!-- SECCIÓN CONFIGURACIÓN -->
-    <div id="settings-section" class="hidden">
-        <div class="section-title"><h2 class="text-xl font-bold dark:text-white">Configuración</h2><button id="back-from-settings" class="flex items-center"><i class="fas fa-arrow-left mr-2"></i> Volver</button></div>
-        <div class="bg-white p-4 rounded-lg shadow-md dark:bg-gray-800">
-            <div class="space-y-4">
-                <div class="flex items-center justify-between">
-                    <div><label class="text-sm font-medium dark:text-gray-200">Modo Oscuro</label><p class="text-xs text-gray-500 dark:text-gray-400">Activa el tema oscuro</p></div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="dark-mode" class="sr-only peer">
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:bg-gray-600"></div>
-                    </label>
-                </div>
-                <div class="flex items-center justify-between">
-                    <div><label class="text-sm font-medium dark:text-gray-200">Notificaciones</label><p class="text-xs text-gray-500 dark:text-gray-400">Alertas para registros pendientes</p></div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="notifications" class="sr-only peer" checked>
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:bg-gray-600"></div>
-                    </label>
-                </div>
-                <div class="flex items-center justify-between">
-                    <div><label class="text-sm font-medium dark:text-gray-200">Guardado Automático</label><p class="text-xs text-gray-500 dark:text-gray-400">Guarda cambios sin confirmar</p></div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="auto-save" class="sr-only peer" checked>
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:bg-gray-600"></div>
-                    </label>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- SECCIÓN AYUDA -->
-    <div id="help-section" class="hidden">
-        <div class="section-title"><h2 class="text-xl font-bold dark:text-white">Ayuda y Soporte</h2><button id="back-from-help" class="flex items-center"><i class="fas fa-arrow-left mr-2"></i> Volver</button></div>
-        <div class="bg-white p-4 rounded-lg shadow-md space-y-4 dark:bg-gray-800">
-            <div class="p-4 border rounded-lg dark:border-gray-700"><h4 class="font-medium text-blue-600 mb-2 dark:text-blue-400">Registro Diario</h4><ul class="text-sm list-disc pl-5 dark:text-gray-300"><li>Usa el campo rápido para agregar entradas</li><li>Navega entre días con los botones</li></ul></div>
-            <div class="p-4 border rounded-lg dark:border-gray-700"><h4 class="font-medium text-blue-600 mb-2 dark:text-blue-400">Registro Mensual</h4><ul class="text-sm list-disc pl-5 dark:text-gray-300"><li>Edita valores, notas y estados directamente</li><li>Los totales se calculan automáticamente</li></ul></div>
-        </div>
-    </div>
-
-    <!-- TOAST -->
-    <div id="toast" class="fixed bottom-5 right-5 bg-blue-600 text-white px-6 py-3 rounded-lg shadow-xl text-sm z-50 hidden animate-fadeIn"><span id="toast-msg"></span></div>
-
-    <!-- MODAL VISTA PREVIA IMPORTACIÓN -->
-    <div id="import-preview-modal" class="modal-overlay fixed inset-0 bg-black bg-opacity-60 z-[100] flex justify-center items-center p-4 hidden opacity-0">
-        <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-lg p-6 opacity-0 transform scale-95 dark:bg-gray-800 dark:text-gray-200">
-            <div class="flex justify-between items-center border-b pb-3 mb-4 dark:border-gray-700">
-                <h2 class="text-xl font-semibold text-gray-800 dark:text-white">Vista Previa de Importación</h2>
-                <button id="close-import-preview" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"><i class="fas fa-times text-gray-600 dark:text-gray-400"></i></button>
-            </div>
-            <div id="import-preview-content" class="text-sm text-gray-700 space-y-3 dark:text-gray-300">
-                <p>Se encontraron los siguientes datos en el archivo <strong id="preview-filename" class="text-blue-600 dark:text-blue-400"></strong>:</p>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-center">
-                    <div class="bg-blue-50 p-3 rounded-lg border border-blue-200 dark:bg-blue-900 dark:border-blue-700"><div class="text-blue-700 font-bold text-2xl dark:text-blue-300" id="preview-monthly-count">0</div><div class="text-blue-600 text-xs uppercase dark:text-blue-400">Meses</div></div>
-                    <div class="bg-green-50 p-3 rounded-lg border border-green-200 dark:bg-green-900 dark:border-green-700"><div class="text-green-700 font-bold text-2xl dark:text-green-300" id="preview-daily-count">0</div><div class="text-green-600 text-xs uppercase dark:text-green-400">Días</div></div>
-                    <div class="bg-yellow-50 p-3 rounded-lg border border-yellow-200 dark:bg-yellow-900 dark:border-yellow-700"><div class="text-yellow-700 font-bold text-2xl dark:text-yellow-300" id="preview-names-count">0</div><div class="text-yellow-600 text-xs uppercase dark:text-yellow-400">Sugerencias</div></div>
-                </div>
-                <div><label class="block text-xs font-medium text-gray-500 mb-1 dark:text-gray-400">Claves encontradas:</label><select id="preview-keys" size="4" class="w-full p-2 border rounded-md bg-gray-50 text-xs font-mono dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"></select></div>
-            </div>
-            <div class="flex justify-end items-center border-t pt-4 mt-4 space-x-3 dark:border-gray-700">
-                <button id="cancel-import" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">Cancelar</button>
-                <button id="confirm-import" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center"><i class="fas fa-check-circle mr-2"></i>Confirmar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL ESCÁNER -->
-    <div id="scanner-modal" class="modal-overlay fixed inset-0 bg-black bg-opacity-80 z-[200] flex justify-center items-center p-4 hidden opacity-0 transition-opacity" style="backdrop-filter: blur(2px);">
-        <div class="modal-content bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl p-6 opacity-0 transform scale-95 transition-all text-white">
-            <div class="flex justify-between items-center border-b border-gray-700 pb-3 mb-4">
-                <h2 class="text-2xl font-semibold text-blue-400">Escanear Ticket</h2>
-                <button id="close-scanner-modal" class="p-2 rounded-full hover:bg-gray-800"><i class="fas fa-times text-gray-400 text-xl"></i></button>
-            </div>
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-300 mb-1">Fecha del ticket</label>
-                <input type="date" id="scanner-date" class="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 text-white focus:ring-2 focus:ring-blue-500">
-            </div>
-            <button id="scanner-file-btn" class="w-full bg-gradient-to-r from-cyan-500 to-purple-600 text-white py-3 rounded-lg font-semibold mb-3 flex items-center justify-center gap-2"><i class="fas fa-camera"></i> Escanear imagen</button>
-            <input type="file" id="scanner-file-input" class="hidden" accept="image/*">
-
-            <div id="scanner-table-container" class="max-h-64 overflow-y-auto bg-gray-800 rounded-lg p-2 mb-2"></div>
-            <div class="scanner-total text-right mt-2">TOTAL $ <span id="scanner-total-amount">0.00</span></div>
-
-            <button id="scanner-insert-btn" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-semibold mt-3 flex items-center justify-center gap-2"><i class="fas fa-table"></i> Insertar en tabla</button>
-            <p class="text-xs text-gray-500 mt-2 text-center">Mismo orden, misma cantidad de filas, total exacto</p>
-        </div>
-    </div>
-
-    <!-- BOTÓN FLOTANTE VOLVER AL MENÚ -->
-    <button id="back-to-menu-btn" class="back-to-menu hidden"><i class="fas fa-home"></i></button>
-</div>
-
-<script>
-(function() {
-    // ========== APLICACIÓN PRINCIPAL ==========
-    const mainMenu = document.getElementById('main-menu');
-    const appContent = document.getElementById('app-content');
-    const backToMenuBtn = document.getElementById('back-to-menu-btn');
-
-    // Secciones
-    const scannerSection = document.getElementById('scanner-section');
-    const dailySection = document.getElementById('daily-section');
-    const monthlyTableContainer = document.getElementById('monthly-table-container');
-    const exportSection = document.getElementById('export-section');
-    const importSection = document.getElementById('import-section');
-    const settingsSection = document.getElementById('settings-section');
-    const helpSection = document.getElementById('help-section');
-
-    // Botones de navegación menú principal
-    const goToDaily = document.getElementById('go-to-daily');
-    const goToMonthly = document.getElementById('go-to-monthly');
-    const goToScanner = document.getElementById('go-to-scanner');
-    const goToExport = document.getElementById('go-to-export');
-    const goToImport = document.getElementById('go-to-import');
-    const goToSettings = document.getElementById('go-to-settings');
-    const goToHelp = document.getElementById('go-to-help');
-
-    // Botones volver
-    const backFromScanner = document.getElementById('back-from-scanner');
-    const backFromDaily = document.getElementById('back-from-daily');
-    const backFromMonthly = document.getElementById('back-from-monthly');
-    const backFromExport = document.getElementById('back-from-export');
-    const backFromImport = document.getElementById('back-from-import');
-    const backFromSettings = document.getElementById('back-from-settings');
-    const backFromHelp = document.getElementById('back-from-help');
-
-    // Estado
-    let currentDate = new Date();
-    let currentDailyViewDate = new Date();
-    let monthlyData = {};
-    let dailyDataForDay = { rows: [] };
-    let dataToImport = null;
-    let currentImportFileName = '';
-
-    // ========== FUNCIONES ==========
-    function showSection(section) {
-        mainMenu.classList.add('hidden');
-        appContent.classList.remove('hidden');
-        backToMenuBtn.classList.remove('hidden');
-        [scannerSection, dailySection, monthlyTableContainer, exportSection, importSection, settingsSection, helpSection].forEach(s => s.classList.add('hidden'));
-        if (section === 'scanner') scannerSection.classList.remove('hidden');
-        if (section === 'daily') { dailySection.classList.remove('hidden'); updateDayDisplay(); }
-        if (section === 'monthly') { monthlyTableContainer.classList.remove('hidden'); updateMonthDisplay(); }
-        if (section === 'export') exportSection.classList.remove('hidden');
-        if (section === 'import') importSection.classList.remove('hidden');
-        if (section === 'settings') settingsSection.classList.remove('hidden');
-        if (section === 'help') helpSection.classList.remove('hidden');
-    }
-
-    function showMainMenu() {
-        mainMenu.classList.remove('hidden');
-        appContent.classList.add('hidden');
-        backToMenuBtn.classList.add('hidden');
-    }
-
-    // Navegación
-    goToDaily.addEventListener('click', () => showSection('daily'));
-    goToMonthly.addEventListener('click', () => showSection('monthly'));
-    goToScanner.addEventListener('click', () => showSection('scanner'));
-    goToExport.addEventListener('click', () => showSection('export'));
-    goToImport.addEventListener('click', () => showSection('import'));
-    goToSettings.addEventListener('click', () => showSection('settings'));
-    goToHelp.addEventListener('click', () => showSection('help'));
-
-    [backFromScanner, backFromDaily, backFromMonthly, backFromExport, backFromImport, backFromSettings, backFromHelp, backToMenuBtn].forEach(btn => btn && btn.addEventListener('click', showMainMenu));
-
-    // ========== FUNCIONES DE DATOS ==========
-    function getMonthlyKey(date) { return `monthly-data-${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`; }
-    function getDailyKey(date) { return `daily-data-${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`; }
-
-    function loadMonthly() { monthlyData = JSON.parse(localStorage.getItem(getMonthlyKey(currentDate)) || '{}'); }
-    function saveMonthly() { localStorage.setItem(getMonthlyKey(currentDate), JSON.stringify(monthlyData)); }
-    function loadDaily() { const d = localStorage.getItem(getDailyKey(currentDailyViewDate)); dailyDataForDay = d ? JSON.parse(d) : { rows: [] }; if (!dailyDataForDay.rows) dailyDataForDay.rows = []; }
-
-    function renderMonthlyTable() {
-        const tbody = document.getElementById('table-body');
-        if (!tbody) return;
-        tbody.innerHTML = '';
-        const year = currentDate.getFullYear(), month = currentDate.getMonth();
-        const days = new Date(year, month+1, 0).getDate();
-        let total = 0;
-        for (let d=1; d<=days; d++) {
-            const dayData = monthlyData[d] || { value:'', notes:'', status:'pending' };
-            const val = parseFloat(dayData.value);
-            if (!isNaN(val) && dayData.value!=='') total+=val;
-            const row = document.createElement('tr');
-            row.className = 'hover:bg-gray-50 dark:hover:bg-gray-700';
-            row.innerHTML = `
-                <td class="p-3">${d}</td>
-                <td class="p-3"><input type="number" step="any" class="data-input w-full bg-transparent p-1 text-sm dark:text-gray-200" value="${dayData.value||''}" data-day="${d}" data-field="value"></td>
-                <td class="p-3"><input type="text" class="data-input w-full bg-transparent p-1 text-sm dark:text-gray-200" value="${dayData.notes||''}" data-day="${d}" data-field="notes"></td>
-                <td class="p-3"><select class="data-input w-full bg-transparent text-sm rounded p-1 dark:text-gray-200" data-day="${d}" data-field="status"><option value="pending" ${dayData.status==='pending'?'selected':''}>Pendiente</option><option value="completed" ${dayData.status==='completed'?'selected':''}>Completado</option><option value="verified" ${dayData.status==='verified'?'selected':''}>Verificado</option><option value="rejected" ${dayData.status==='rejected'?'selected':''}>Rechazado</option></select></td>
-            `;
-            tbody.appendChild(row);
-        }
-        document.getElementById('monthly-total').textContent = total.toFixed(2);
-        document.getElementById('monthly-calc').textContent = (total*0.78*0.025).toFixed(2);
-        document.querySelectorAll('#table-body .data-input').forEach(inp => inp.addEventListener('change', handleMonthlyChange));
-    }
-
-    function handleMonthlyChange(e) {
-        const day = e.target.dataset.day;
-        const field = e.target.dataset.field;
-        let val = e.target.value;
-        if (field==='value' && val!=='') val = parseFloat(val) || '';
-        if (!monthlyData[day]) monthlyData[day] = { value:'', notes:'', status:'pending' };
-        monthlyData[day][field] = val;
-        saveMonthly();
-        renderMonthlyTable();
-    }
-
-    function renderDailyTable() {
-        const tbody = document.getElementById('daily-table-body');
-        if (!tbody) return;
-        tbody.innerHTML = '';
-        let total = 0;
-        if (!dailyDataForDay.rows.length) dailyDataForDay.rows = [{ account:'', value:'', notes:'' }];
-        dailyDataForDay.rows.forEach((row, idx) => {
-            const val = parseFloat(row.value) || 0;
-            total += val;
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td class="p-3">${idx+1}</td>
-                <td class="p-3"><input type="text" class="data-input w-full bg-transparent p-1 text-sm uppercase dark:text-gray-200" value="${row.account||''}" data-index="${idx}" data-field="account" list="dailyAccountSuggestions"></td>
-                <td class="p-3"><input type="number" step="any" class="data-input w-full bg-transparent p-1 text-sm dark:text-gray-200" value="${row.value||''}" data-index="${idx}" data-field="value"></td>
-                <td class="p-3"><input type="text" class="data-input w-full bg-transparent p-1 text-sm dark:text-gray-200" value="${row.notes||''}" data-index="${idx}" data-field="notes"></td>
-                <td class="p-3 text-center"><button class="text-red-500 hover:text-red-700 delete-daily-row" data-index="${idx}"><i class="fas fa-trash-alt"></i></button></td>
-            `;
-            tbody.appendChild(tr);
-        });
-        document.getElementById('daily-col2-total').textContent = total.toFixed(2);
-        syncDailyToMonthly(total);
-        document.querySelectorAll('#daily-table-body .data-input').forEach(inp => inp.addEventListener('change', handleDailyChange));
-        document.querySelectorAll('.delete-daily-row').forEach(btn => btn.addEventListener('click', deleteDailyRow));
-    }
-
-    function handleDailyChange(e) {
-        const idx = e.target.dataset.index;
-        const field = e.target.dataset.field;
-        let val = e.target.value;
-        if (field==='value' && val!=='') val = parseFloat(val) || '';
-        if (field==='account') val = val.toUpperCase();
-        if (!dailyDataForDay.rows[idx]) dailyDataForDay.rows[idx] = { account:'', value:'', notes:'' };
-        dailyDataForDay.rows[idx][field] = val;
-        saveDaily();
-        renderDailyTable();
-    }
-
-    function deleteDailyRow(e) {
-        const idx = e.target.closest('button').dataset.index;
-        if (dailyDataForDay.rows.length > 1) dailyDataForDay.rows.splice(idx,1);
-        else dailyDataForDay.rows[0] = { account:'', value:'', notes:'' };
-        saveDaily();
-        renderDailyTable();
-    }
-
-    function saveDaily() { localStorage.setItem(getDailyKey(currentDailyViewDate), JSON.stringify(dailyDataForDay)); }
-    function syncDailyToMonthly(dailyTotal) {
-        const day = currentDailyViewDate.getDate();
-        const monthKey = getMonthlyKey(currentDailyViewDate);
-        let monthData = JSON.parse(localStorage.getItem(monthKey) || '{}');
-        if (!monthData[day]) monthData[day] = { value:'', notes:'', status:'pending' };
-        monthData[day].value = dailyTotal > 0 ? dailyTotal.toFixed(2) : '';
-        localStorage.setItem(monthKey, JSON.stringify(monthData));
-        if (currentDate.getFullYear()===currentDailyViewDate.getFullYear() && currentDate.getMonth()===currentDailyViewDate.getMonth()) {
-            monthlyData = monthData;
-            renderMonthlyTable();
-        }
-    }
-
-    function updateMonthDisplay() {
-        const monthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-        document.getElementById('current-month-display').textContent = `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
-        document.getElementById('month-select').value = currentDate.getMonth();
-        document.getElementById('year-select').value = currentDate.getFullYear();
-        loadMonthly();
-        renderMonthlyTable();
-    }
-
-    function updateDayDisplay() {
-        const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-        document.getElementById('current-day-display').textContent = `${currentDailyViewDate.getDate()} de ${monthNames[currentDailyViewDate.getMonth()]} ${currentDailyViewDate.getFullYear()}`;
-        loadDaily();
-        renderDailyTable();
-    }
-
-    // Eventos de navegación
-    document.getElementById('prev-month').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth()-1); updateMonthDisplay(); });
-    document.getElementById('next-month').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth()+1); updateMonthDisplay(); });
-    document.getElementById('month-select').addEventListener('change', (e) => { currentDate.setMonth(parseInt(e.target.value)); updateMonthDisplay(); });
-    document.getElementById('year-select').addEventListener('change', (e) => { currentDate.setFullYear(parseInt(e.target.value)); updateMonthDisplay(); });
-
-    document.getElementById('prev-day').addEventListener('click', () => { currentDailyViewDate.setDate(currentDailyViewDate.getDate()-1); updateDayDisplay(); });
-    document.getElementById('next-day').addEventListener('click', () => { currentDailyViewDate.setDate(currentDailyViewDate.getDate()+1); updateDayDisplay(); });
-
-    // Quick insert diario
-    document.getElementById('dailyQuickInsertBtn').addEventListener('click', () => {
-        const name = document.getElementById('dailyQuickInsertName').value.trim().toUpperCase();
-        const val = parseFloat(document.getElementById('dailyQuickInsertValue').value);
-        if (!name || isNaN(val)) { showToast('Complete nombre y valor', true); return; }
-        dailyDataForDay.rows.push({ account: name, value: val, notes: '' });
-        saveDaily();
-        renderDailyTable();
-        document.getElementById('dailyQuickInsertName').value = '';
-        document.getElementById('dailyQuickInsertValue').value = '';
-    });
-
-    document.getElementById('add-row').addEventListener('click', () => { dailyDataForDay.rows.push({ account:'', value:'', notes:'' }); saveDaily(); renderDailyTable(); });
-    document.getElementById('remove-row').addEventListener('click', () => { if (dailyDataForDay.rows.length>1) dailyDataForDay.rows.pop(); else dailyDataForDay.rows[0] = { account:'', value:'', notes:'' }; saveDaily(); renderDailyTable(); });
-
-    // ========== EXPORTACIÓN OPTIMIZADA PARA ANDROID ==========
-    function downloadFile(content, filename, mimeType) {
-        // Crear blob y enlace de descarga
-        const blob = new Blob([content], { type: mimeType });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        // Importante: agregar al DOM y simular clic
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    }
-
-    document.getElementById('export-all-btn').addEventListener('click', () => {
-        const allData = {};
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key.startsWith('monthly-') || key.startsWith('daily-') || key === 'name-suggestions') {
-                allData[key] = localStorage.getItem(key);
-            }
-        }
-        if (Object.keys(allData).length === 0) {
-            showToast('No hay datos para exportar', true);
-            return;
-        }
-        const date = new Date().toISOString().slice(0,10);
-        const filename = `backup-${date}.json`;
-        const jsonStr = JSON.stringify(allData, null, 2);
-        downloadFile(jsonStr, filename, 'application/json');
-        showToast('Exportación iniciada');
-    });
-
-    document.getElementById('export-selected-btn').addEventListener('click', () => {
-        const month = document.getElementById('export-month-select').value;
-        const year = document.getElementById('export-year-select').value;
-        if (!month && !year) {
-            document.getElementById('export-all-btn').click();
-            return;
-        }
-        const filtered = {};
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (!key.startsWith('monthly-') && !key.startsWith('daily-') && key !== 'name-suggestions') continue;
-            if (year && !key.includes(`-${year}-`)) continue;
-            if (month) {
-                const monthPad = String(parseInt(month) + 1).padStart(2, '0');
-                if (!key.includes(`-${monthPad}-`)) continue;
-            }
-            filtered[key] = localStorage.getItem(key);
-        }
-        if (Object.keys(filtered).length === 0) {
-            showToast('No hay datos con esos filtros', true);
-            return;
-        }
-        let filename = 'backup';
-        if (year) filename += `-${year}`;
-        if (month) filename += `-${String(parseInt(month)+1).padStart(2,'0')}`;
-        filename += '.json';
-        const jsonStr = JSON.stringify(filtered, null, 2);
-        downloadFile(jsonStr, filename, 'application/json');
-        showToast('Exportación iniciada');
-    });
-
-    // ========== IMPORTACIÓN ==========
-    const selectImportFile = document.getElementById('select-import-file');
-    const importFileInput = document.getElementById('import-file-input');
-    const importPreviewModal = document.getElementById('import-preview-modal');
-    const closeImportPreview = document.getElementById('close-import-preview');
-    const cancelImport = document.getElementById('cancel-import');
-    const confirmImport = document.getElementById('confirm-import');
-    const previewMonthlyCount = document.getElementById('preview-monthly-count');
-    const previewDailyCount = document.getElementById('preview-daily-count');
-    const previewNamesCount = document.getElementById('preview-names-count');
-    const previewKeysList = document.getElementById('preview-keys');
-    const previewFileName = document.getElementById('preview-filename');
-
-    selectImportFile.addEventListener('click', () => importFileInput.click());
-    importFileInput.addEventListener('change', handleFileSelect);
-
-    function handleFileSelect(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        currentImportFileName = file.name;
-        const reader = new FileReader();
-        reader.onload = function(ev) {
-            try {
-                const parsed = JSON.parse(ev.target.result);
-                const validKeys = Object.keys(parsed).filter(k => k.startsWith('monthly-') || k.startsWith('daily-') || k === 'name-suggestions');
-                if (validKeys.length === 0) {
-                    showToast('El archivo no contiene datos válidos', true);
-                    return;
+                // Si la parte decimal tiene exactamente 2 dígitos (centavos) y la parte entera es larga,
+                // podría ser que falte el punto de miles. Ejemplo: "23400.00" queremos "234.00"
+                // Verificamos si la parte entera tiene más de 3 dígitos y el número total de dígitos
+                // sugiere que debería haber un punto separador de miles.
+                if (decimales.length === 2 && enteros.length > 3) {
+                    // Intentamos interpretar como que el punto decimal está al final y los miles no están marcados.
+                    // Una heurística: si el número es múltiplo de 100? No siempre.
+                    // Mejor: si la parte entera termina en "00" y tiene más de 3 dígitos, podría ser que el punto
+                    // debería estar dos lugares antes. Por ejemplo, "23400" -> "234.00"
+                    // Pero "1153.00" no debería cambiar porque 1153 es válido.
+                    // Entonces, solo aplicamos si la parte entera es mayor que 999 y termina en "00"?
+                    // No es perfecto. Otra opción: comparar con el total al final.
+                    // Como tenemos el total esperado, podríamos usarlo para calibrar, pero en este ejemplo
+                    // el total es 31726.00, que es la suma de todos.
+                    // En lugar de hacer una heurística complicada, dejamos que el usuario verifique y ajuste manualmente.
+                    // Pero podemos añadir una regla simple: si la parte entera tiene más de 3 dígitos y los últimos 2 son '00',
+                    // puede ser que el decimal sea esos dos últimos. Ej: 23400 -> 234.00
+                    if (enteros.length > 3 && enteros.slice(-2) === '00') {
+                        // Quitamos los dos últimos ceros y ponemos punto antes
+                        let nuevosEnteros = enteros.slice(0, -2);
+                        if (nuevosEnteros.length > 0) {
+                            return nuevosEnteros + '.' + decimales; // decimales ya es '00'
+                        }
+                    }
                 }
-                dataToImport = parsed;
-                showImportPreview(dataToImport);
-            } catch (error) {
-                showToast('Archivo inválido', true);
+                // Si no se cumple, devolvemos el valor original
+                return valor;
+            } else {
+                // No tiene punto decimal: podría ser un entero, o un número con decimales omitidos.
+                // Si termina en "00" y tiene más de 2 dígitos, podría ser que falte el punto. Ej: "23400" -> "234.00"
+                if (/^\d+$/.test(valor) && valor.length > 2 && valor.slice(-2) === '00') {
+                    // Asumimos que los dos últimos son decimales
+                    let enteros = valor.slice(0, -2);
+                    return enteros + '.00';
+                }
+                return valor;
             }
-        };
-        reader.readAsText(file);
-        importFileInput.value = '';
-    }
+        }
 
-    function showImportPreview(data) {
-        let monthly = 0, daily = 0, names = 0;
-        const keys = Object.keys(data);
-        previewKeysList.innerHTML = '';
-        keys.forEach(k => {
-            if (k.startsWith('monthly-')) monthly++;
-            if (k.startsWith('daily-')) daily++;
-            if (k === 'name-suggestions') {
-                try { names = JSON.parse(data[k]).length; } catch { names = 0; }
-            }
-            const opt = document.createElement('option');
-            opt.textContent = k;
-            opt.disabled = true;
-            previewKeysList.appendChild(opt);
-        });
-        previewMonthlyCount.textContent = monthly;
-        previewDailyCount.textContent = daily;
-        previewNamesCount.textContent = names;
-        previewFileName.textContent = currentImportFileName;
+        /**
+         * Parsea el texto completo del OCR extrayendo cliente y monto.
+         * Retorna un array de objetos { cliente, monto } y el total extraído (si se encuentra).
+         */
+        function procesarTextoOCR(texto) {
+            const lineas = texto.split('\n').filter(line => line.trim() !== '');
+            const resultados = [];
+            let totalExtraido = null;
 
-        importPreviewModal.classList.remove('hidden');
-        setTimeout(() => {
-            importPreviewModal.classList.remove('opacity-0');
-            importPreviewModal.querySelector('.modal-content').classList.remove('opacity-0', 'scale-95');
-        }, 10);
-    }
+            // Expresión regular para buscar un número al final de la línea (con o sin decimales)
+            // Permite formato 123.45 o 123,45 (aunque aquí usamos punto)
+            const regexMonto = /(\d+[.,]\d+|\d+)$/;
 
-    function closeImportModal() {
-        importPreviewModal.classList.add('opacity-0');
-        importPreviewModal.querySelector('.modal-content').classList.add('opacity-0', 'scale-95');
-        setTimeout(() => importPreviewModal.classList.add('hidden'), 300);
-        dataToImport = null;
-    }
+            lineas.forEach(linea => {
+                // Buscar si la línea contiene el total (línea con muchos = y luego un número)
+                if (linea.includes('===') || linea.includes('___')) {
+                    // La siguiente línea podría ser el total
+                    return; // por ahora lo manejaremos aparte
+                }
 
-    closeImportPreview.addEventListener('click', closeImportModal);
-    cancelImport.addEventListener('click', closeImportModal);
+                // Intentar extraer el monto al final
+                const match = linea.match(regexMonto);
+                if (match) {
+                    let montoStr = match[0].replace(',', '.'); // unificar a punto decimal
+                    // Aplicar corrección
+                    let montoCorregido = corregirNumeroOCR(montoStr);
+                    let montoNum = parseFloat(montoCorregido);
+                    if (!isNaN(montoNum)) {
+                        // El nombre es todo antes del monto
+                        let nombre = linea.substring(0, match.index).trim();
+                        resultados.push({ cliente: nombre, monto: montoNum });
+                    }
+                }
+            });
 
-    confirmImport.addEventListener('click', () => {
-        if (!dataToImport) return;
-        try {
-            let count = 0;
-            for (const key in dataToImport) {
-                if (key.startsWith('monthly-') || key.startsWith('daily-') || key === 'name-suggestions') {
-                    localStorage.setItem(key, dataToImport[key]);
-                    count++;
+            // Buscar el total al final (después de la línea de separadores)
+            const lineasArray = texto.split('\n');
+            for (let i = 0; i < lineasArray.length; i++) {
+                if (lineasArray[i].includes('===') && i+1 < lineasArray.length) {
+                    const posibleTotal = lineasArray[i+1].trim();
+                    const matchTotal = posibleTotal.match(regexMonto);
+                    if (matchTotal) {
+                        totalExtraido = parseFloat(matchTotal[0].replace(',', '.'));
+                        break;
+                    }
                 }
             }
-            showToast(`${count} elementos importados`);
-            loadMonthly(); renderMonthlyTable();
-            loadDaily(); renderDailyTable();
-        } catch (e) {
-            showToast('Error al importar', true);
+
+            return { datos: resultados, totalExtraido };
         }
-        closeImportModal();
-    });
 
-    // ========== MODO OSCURO ==========
-    const darkModeToggle = document.getElementById('dark-mode');
-    const themeColor = document.getElementById('theme-color');
+        // ====================================================
+        // 2. ELEMENTOS Y EVENTOS
+        // ====================================================
 
-    const savedDark = localStorage.getItem('darkMode') === 'true';
-    if (savedDark) {
-        document.documentElement.classList.add('dark');
-        darkModeToggle.checked = true;
-        document.body.classList.remove('bg-gray-50');
-        document.body.classList.add('bg-gray-900');
-        themeColor.setAttribute('content', '#1f2937');
-    } else {
-        document.documentElement.classList.remove('dark');
-        darkModeToggle.checked = false;
-        document.body.classList.add('bg-gray-50');
-        document.body.classList.remove('bg-gray-900');
-        themeColor.setAttribute('content', '#3b82f6');
-    }
+        const ocrInput = document.getElementById('ocrInput');
+        const procesarBtn = document.getElementById('procesarBtn');
+        const mensajeProcesado = document.getElementById('mensajeProcesado');
+        const tablaBody = document.querySelector('#tablaResultados tbody');
+        const totalCalculadoSpan = document.getElementById('totalCalculado');
+        const totalExtraidoSpan = document.getElementById('totalExtraido');
+        const verificacionTotal = document.getElementById('verificacionTotal');
 
-    darkModeToggle.addEventListener('change', function(e) {
-        if (e.target.checked) {
-            document.documentElement.classList.add('dark');
-            document.body.classList.remove('bg-gray-50');
-            document.body.classList.add('bg-gray-900');
-            themeColor.setAttribute('content', '#1f2937');
-            localStorage.setItem('darkMode', 'true');
-        } else {
-            document.documentElement.classList.remove('dark');
-            document.body.classList.remove('bg-gray-900');
-            document.body.classList.add('bg-gray-50');
-            themeColor.setAttribute('content', '#3b82f6');
-            localStorage.setItem('darkMode', 'false');
-        }
-    });
+        let datosProcesados = []; // Para usar en exportación
 
-    // Toast
-    function showToast(msg, err) {
-        const t = document.getElementById('toast'), tm = document.getElementById('toast-msg');
-        t.className = `fixed bottom-5 right-5 text-white px-6 py-3 rounded-lg shadow-xl text-sm z-[250] animate-fadeIn ${err?'bg-red-500':'bg-blue-600'}`;
-        tm.textContent = msg; t.classList.remove('hidden');
-        setTimeout(() => { t.classList.add('opacity-0'); setTimeout(() => t.classList.add('hidden'), 500); }, 3000);
-    }
+        procesarBtn.addEventListener('click', () => {
+            const texto = ocrInput.value;
+            const { datos, totalExtraido } = procesarTextoOCR(texto);
+            datosProcesados = datos;
 
-    // ========== ESCÁNER MEJORADO: NEGATIVOS Y PRECISIÓN ==========
-    const scannerModal = document.getElementById('scanner-modal');
-    const openScanner = document.getElementById('open-scanner-btn');
-    const closeScanner = document.getElementById('close-scanner-modal');
-    const scannerFileBtn = document.getElementById('scanner-file-btn');
-    const scannerFileInput = document.getElementById('scanner-file-input');
-    const scannerInsert = document.getElementById('scanner-insert-btn');
-    const scannerDate = document.getElementById('scanner-date');
-    const scannerTable = document.getElementById('scanner-table-container');
-    const scannerTotalSpan = document.getElementById('scanner-total-amount');
+            // Calcular suma
+            const suma = datos.reduce((acc, item) => acc + item.monto, 0);
+            totalCalculadoSpan.textContent = suma.toFixed(2);
+            totalExtraidoSpan.textContent = totalExtraido !== null ? totalExtraido.toFixed(2) : 'No detectado';
 
-    let scannedItems = [];
-    const today = new Date(); scannerDate.value = today.toISOString().split('T')[0];
-
-    openScanner.addEventListener('click', () => {
-        scannerModal.classList.remove('hidden');
-        setTimeout(() => {
-            scannerModal.classList.remove('opacity-0');
-            scannerModal.querySelector('.modal-content').classList.remove('opacity-0', 'scale-95');
-        }, 10);
-    });
-    closeScanner.addEventListener('click', closeScannerModal);
-    function closeScannerModal() {
-        scannerModal.classList.add('opacity-0');
-        scannerModal.querySelector('.modal-content').classList.add('opacity-0', 'scale-95');
-        setTimeout(() => scannerModal.classList.add('hidden'), 300);
-    }
-
-    scannerFileBtn.addEventListener('click', () => scannerFileInput.click());
-    scannerFileInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const canvas = await preprocessImage(file);
-        const result = await Tesseract.recognize(canvas, 'spa');
-        const text = result.data.text;
-        console.log("OCR raw:", text); // Para depuración
-        parseTicketPreciso(text);
-        renderScannedTable();
-    });
-
-    function preprocessImage(file) {
-        return new Promise(res => {
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                canvas.width = img.width; canvas.height = img.height;
-                ctx.filter = 'grayscale(100%) contrast(160%)';
-                ctx.drawImage(img, 0, 0);
-                res(canvas);
-            };
-            img.src = URL.createObjectURL(file);
-        });
-    }
-
-    // Parser de alta precisión: soporta negativos y evita falsos positivos
-    function parseTicketPreciso(text) {
-        scannedItems = [];
-        const lines = text.split('\n');
-        
-        lines.forEach(line => {
-            // Limpiar la línea: eliminar espacios extras
-            line = line.trim();
-            if (line.length === 0) return;
-
-            // Buscar un número con formato de precio al final de la línea
-            // Patrón: opcional signo negativo, luego dígitos (con posibles separadores de miles), luego coma o punto, luego exactamente dos dígitos
-            const priceRegex = /(-?\d{1,3}(?:[.,]?\d{3})*[.,]\d{2})\s*$/;
-            const match = line.match(priceRegex);
-            if (!match) return;
-
-            let priceStr = match[1];
-            // Normalizar: eliminar todos los puntos (separadores de miles) y luego cambiar la última coma por punto
-            // Ejemplo: "1.234,56" -> "1234,56" -> "1234.56"
-            priceStr = priceStr.replace(/\./g, ''); // quita puntos de miles
-            priceStr = priceStr.replace(',', '.');  // última coma a punto
-            let price = parseFloat(priceStr);
-            if (isNaN(price)) return;
-
-            // Extraer la parte izquierda (nombre del producto y posible cantidad)
-            let leftPart = line.replace(match[0], '').trim();
-
-            // Buscar cantidad al inicio (uno o más dígitos seguidos de espacio)
-            let qty = 1;
-            const qtyMatch = leftPart.match(/^(\d+)\s+/);
-            if (qtyMatch) {
-                qty = parseInt(qtyMatch[1]);
-                leftPart = leftPart.replace(qtyMatch[0], '').trim();
+            if (totalExtraido !== null) {
+                const diff = Math.abs(suma - totalExtraido);
+                if (diff < 0.01) {
+                    verificacionTotal.innerHTML = '✅ Coincide';
+                } else {
+                    verificacionTotal.innerHTML = `❌ Diferencia: ${diff.toFixed(2)}`;
+                }
+            } else {
+                verificacionTotal.innerHTML = '';
             }
 
-            // Validar que el nombre del producto tenga al menos 2 caracteres y no parezca una fecha
-            if (leftPart.length < 2) return;
-            // Ignorar líneas que parezcan fechas (ej: "20/03/2025")
-            if (leftPart.match(/\d{1,2}[/-]\d{1,2}[/-]\d{2,4}/)) return;
+            // Renderizar tabla
+            tablaBody.innerHTML = '';
+            datos.forEach(item => {
+                const fila = document.createElement('tr');
+                fila.innerHTML = `<td>${item.cliente}</td><td>${item.monto.toFixed(2)}</td>`;
+                tablaBody.appendChild(fila);
+            });
 
-            scannedItems.push({ qty, name: leftPart, price });
+            mensajeProcesado.textContent = `Se procesaron ${datos.length} registros.`;
         });
-    }
 
-    function renderScannedTable() {
-        let html = '', total = 0;
-        scannedItems.forEach((it, i) => {
-            total += it.qty * it.price;
-            html += `<div class="scanner-row"><span class="scanner-item-index">${i+1}</span><input class="scanner-qty" value="${it.qty}" data-index="${i}" data-field="qty"><input value="${it.name}" data-index="${i}" data-field="name"><input class="scanner-price" value="${it.price.toFixed(2)}" data-index="${i}" data-field="price"></div>`;
+        // Ejecutar automáticamente al cargar la página para mostrar ejemplo
+        window.addEventListener('load', () => {
+            procesarBtn.click();
         });
-        scannerTable.innerHTML = html || '<p class="text-gray-500 text-center py-4">No se detectaron productos válidos</p>';
-        scannerTotalSpan.textContent = total.toFixed(2);
 
-        document.querySelectorAll('.scanner-row input').forEach(inp => inp.addEventListener('input', (e) => {
-            const idx = e.target.dataset.index;
-            const fld = e.target.dataset.field;
-            let val = e.target.value;
-            if (fld === 'qty' || fld === 'price') {
-                val = parseFloat(val) || 0;
+        // ====================================================
+        // 3. EXPORTACIÓN A TXT
+        // ====================================================
+
+        // Añadir fecha ficticia a los datos para poder filtrar por mes
+        // En una app real, cada registro tendría su propia fecha. Aquí asignamos una fecha por defecto (hoy)
+        function asignarFechaPorDefecto(registros) {
+            const hoy = new Date();
+            const mesActual = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+            return registros.map(r => ({
+                ...r,
+                fecha: mesActual + '-01' // primer día del mes actual
+            }));
+        }
+
+        function formatearDatos(registros) {
+            if (registros.length === 0) return 'No hay datos.';
+            let texto = 'Cliente\tMonto\n';
+            registros.forEach(r => {
+                texto += `${r.cliente}\t${r.monto.toFixed(2)}\n`;
+            });
+            return texto;
+        }
+
+        function descargarTxt(contenido, nombreArchivo) {
+            const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = nombreArchivo.endsWith('.txt') ? nombreArchivo : nombreArchivo + '.txt';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        const mesSelector = document.getElementById('mesSelector');
+        const btnTodo = document.getElementById('btnDescargarTodo');
+        const btnMes = document.getElementById('btnDescargarMes');
+
+        btnTodo.addEventListener('click', () => {
+            if (datosProcesados.length === 0) {
+                alert('No hay datos procesados. Primero procesa el texto OCR.');
+                return;
             }
-            if (scannedItems[idx]) scannedItems[idx][fld] = val;
-            let newTotal = scannedItems.reduce((acc, it) => acc + it.qty * it.price, 0);
-            scannerTotalSpan.textContent = newTotal.toFixed(2);
-        }));
-    }
+            const datosConFecha = asignarFechaPorDefecto(datosProcesados);
+            const contenido = formatearDatos(datosConFecha);
+            descargarTxt(contenido, 'todos_los_datos.txt');
+        });
 
-    scannerInsert.addEventListener('click', () => {
-        if (!scannedItems.length) { showToast('No hay productos para insertar', true); return; }
-        const dateStr = scannerDate.value;
-        if (!dateStr) return;
-        const [y, m, d] = dateStr.split('-').map(Number);
-        const target = new Date(y, m-1, d);
-        const dailyKey = getDailyKey(target);
-        let daily = JSON.parse(localStorage.getItem(dailyKey) || '{"rows":[]}');
-        if (!daily.rows) daily.rows = [];
-        scannedItems.forEach(it => daily.rows.push({ account: it.name.toUpperCase(), value: (it.qty * it.price).toFixed(2), notes: '' }));
-        localStorage.setItem(dailyKey, JSON.stringify(daily));
-
-        const monthKey = getMonthlyKey(target);
-        let month = JSON.parse(localStorage.getItem(monthKey) || '{}');
-        const dayTotal = scannedItems.reduce((acc, it) => acc + it.qty * it.price, 0);
-        if (!month[d]) month[d] = { value: '', notes: '', status: 'pending' };
-        month[d].value = dayTotal.toFixed(2);
-        localStorage.setItem(monthKey, JSON.stringify(month));
-
-        showToast(`Insertados ${scannedItems.length} productos (total $${dayTotal.toFixed(2)})`);
-        scannedItems = [];
-        renderScannedTable();
-        closeScannerModal();
-        if (currentDate.getFullYear() === y && currentDate.getMonth() === m-1) { loadMonthly(); renderMonthlyTable(); }
-        if (currentDailyViewDate.getFullYear() === y && currentDailyViewDate.getMonth() === m-1 && currentDailyViewDate.getDate() === d) { loadDaily(); renderDailyTable(); }
-    });
-
-    // Años para selects
-    const yearSel = document.getElementById('year-select');
-    const exportYear = document.getElementById('export-year-select');
-    const curY = new Date().getFullYear();
-    for (let y = curY-10; y <= curY+5; y++) {
-        yearSel.innerHTML += `<option value="${y}" ${y === curY ? 'selected' : ''}>${y}</option>`;
-        if (exportYear) exportYear.innerHTML += `<option value="${y}">${y}</option>`;
-    }
-
-    // Inicializar
-    updateMonthDisplay();
-    updateDayDisplay();
-})();
-</script>
+        btnMes.addEventListener('click', () => {
+            if (datosProcesados.length === 0) {
+                alert('No hay datos procesados.');
+                return;
+            }
+            const mes = mesSelector.value;
+            if (!mes) {
+                alert('Selecciona un mes.');
+                return;
+            }
+            const datosConFecha = asignarFechaPorDefecto(datosProcesados);
+            const datosMes = datosConFecha.filter(item => item.fecha.startsWith(mes));
+            if (datosMes.length === 0) {
+                alert(`No hay datos para el mes ${mes}. Se asignó fecha por defecto: ${datosConFecha[0]?.fecha}.`);
+                return;
+            }
+            const contenido = formatearDatos(datosMes);
+            descargarTxt(contenido, `datos_${mes}.txt`);
+        });
+    </script>
 </body>
 </html>
