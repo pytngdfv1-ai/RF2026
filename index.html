@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro Financiero + Escáner (Corrección final)</title>
+    <title>Registro Financiero + Escáner (Corregido)</title>
     
     <!-- Meta tags PWA -->
     <meta name="mobile-web-app-capable" content="yes">
@@ -31,7 +31,7 @@
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     
     <style>
-        /* Estilos completos (sin cambios, pero los incluyo por integridad) */
+        /* ========== ESTILOS COMPLETOS (sin cambios) ========== */
         .data-input { transition: all 0.2s; border-bottom: 1px solid #e2e8f0; }
         .dark .data-input { border-bottom: 1px solid #4b5563; color: #e5e7eb; }
         .data-input:focus { outline: none; border-bottom: 1px solid #3b82f6; }
@@ -538,15 +538,15 @@
     document.getElementById('add-row').addEventListener('click', () => { dailyDataForDay.rows.push({ account:'', value:'', notes:'' }); saveDaily(); renderDailyTable(); });
     document.getElementById('remove-row').addEventListener('click', () => { if (dailyDataForDay.rows.length>1) dailyDataForDay.rows.pop(); else dailyDataForDay.rows[0] = { account:'', value:'', notes:'' }; saveDaily(); renderDailyTable(); });
 
-    // ========== EXPORTACIÓN OPTIMIZADA PARA ANDROID ==========
-    function downloadFile(content, filename, mimeType) {
-        // Crear blob y enlace de descarga
-        const blob = new Blob([content], { type: mimeType });
+    // ========== EXPORTACIÓN CONFIABLE PARA ANDROID ==========
+    function downloadJSON(data, filename) {
+        const jsonStr = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = filename;
-        // Importante: agregar al DOM y simular clic
+        link.download = filename.endsWith('.json') ? filename : filename + '.json';
+        link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -566,9 +566,7 @@
             return;
         }
         const date = new Date().toISOString().slice(0,10);
-        const filename = `backup-${date}.json`;
-        const jsonStr = JSON.stringify(allData, null, 2);
-        downloadFile(jsonStr, filename, 'application/json');
+        downloadJSON(allData, `backup-${date}.json`);
         showToast('Exportación iniciada');
     });
 
@@ -598,8 +596,7 @@
         if (year) filename += `-${year}`;
         if (month) filename += `-${String(parseInt(month)+1).padStart(2,'0')}`;
         filename += '.json';
-        const jsonStr = JSON.stringify(filtered, null, 2);
-        downloadFile(jsonStr, filename, 'application/json');
+        downloadJSON(filtered, filename);
         showToast('Exportación iniciada');
     });
 
@@ -741,7 +738,7 @@
         setTimeout(() => { t.classList.add('opacity-0'); setTimeout(() => t.classList.add('hidden'), 500); }, 3000);
     }
 
-    // ========== ESCÁNER MEJORADO: NEGATIVOS Y PRECISIÓN ==========
+    // ========== ESCÁNER CON PARSER INTELIGENTE (soporta negativos y evita errores de escala) ==========
     const scannerModal = document.getElementById('scanner-modal');
     const openScanner = document.getElementById('open-scanner-btn');
     const closeScanner = document.getElementById('close-scanner-modal');
@@ -775,9 +772,7 @@
         if (!file) return;
         const canvas = await preprocessImage(file);
         const result = await Tesseract.recognize(canvas, 'spa');
-        const text = result.data.text;
-        console.log("OCR raw:", text); // Para depuración
-        parseTicketPreciso(text);
+        parseTicketInteligente(result.data.text);
         renderScannedTable();
     });
 
@@ -796,32 +791,70 @@
         });
     }
 
-    // Parser de alta precisión: soporta negativos y evita falsos positivos
-    function parseTicketPreciso(text) {
+    // Parser inteligente que maneja correctamente los decimales y negativos
+    function parseTicketInteligente(text) {
         scannedItems = [];
         const lines = text.split('\n');
         
         lines.forEach(line => {
-            // Limpiar la línea: eliminar espacios extras
             line = line.trim();
             if (line.length === 0) return;
 
-            // Buscar un número con formato de precio al final de la línea
-            // Patrón: opcional signo negativo, luego dígitos (con posibles separadores de miles), luego coma o punto, luego exactamente dos dígitos
-            const priceRegex = /(-?\d{1,3}(?:[.,]?\d{3})*[.,]\d{2})\s*$/;
-            const match = line.match(priceRegex);
-            if (!match) return;
+            // Busca un número al final de la línea que pueda tener signo negativo y dos decimales
+            // El patrón permite dígitos, puntos, comas y un posible signo menos al inicio.
+            const priceMatch = line.match(/(-?[\d.,]+)\s*$/);
+            if (!priceMatch) return;
 
-            let priceStr = match[1];
-            // Normalizar: eliminar todos los puntos (separadores de miles) y luego cambiar la última coma por punto
-            // Ejemplo: "1.234,56" -> "1234,56" -> "1234.56"
-            priceStr = priceStr.replace(/\./g, ''); // quita puntos de miles
-            priceStr = priceStr.replace(',', '.');  // última coma a punto
-            let price = parseFloat(priceStr);
+            let priceStr = priceMatch[1];
+            
+            // Función para interpretar el número correctamente
+            function interpretarPrecio(s) {
+                // Detectar si hay un separador decimal (último punto o coma)
+                let decimalSeparator = null;
+                let lastDot = s.lastIndexOf('.');
+                let lastComma = s.lastIndexOf(',');
+                
+                if (lastDot > lastComma && lastDot !== -1) {
+                    decimalSeparator = '.';
+                } else if (lastComma > lastDot && lastComma !== -1) {
+                    decimalSeparator = ',';
+                }
+                
+                if (decimalSeparator) {
+                    // Dividir en parte entera y decimal
+                    let parts = s.split(decimalSeparator);
+                    let integerPart = parts.slice(0, -1).join(''); // quita separadores de miles
+                    let decimalPart = parts[parts.length-1];
+                    
+                    // Si la parte decimal tiene exactamente 2 dígitos, es válido
+                    if (decimalPart.length === 2) {
+                        // Eliminar cualquier otro separador de miles en la parte entera
+                        integerPart = integerPart.replace(/[.,]/g, '');
+                        return parseFloat(integerPart + '.' + decimalPart);
+                    } else {
+                        // No tiene dos decimales, probablemente no es un precio
+                        return NaN;
+                    }
+                } else {
+                    // No hay separador decimal, podría ser un número sin decimales o con punto de miles mal interpretado
+                    // Si el string tiene más de 2 dígitos y termina en "00", podría ser que falte el punto decimal
+                    // Ejemplo: "23400" -> debería ser 234.00
+                    if (s.length > 2 && s.endsWith('00')) {
+                        // Asumir que los últimos dos dígitos son decimales
+                        let integerPart = s.slice(0, -2);
+                        integerPart = integerPart.replace(/[.,]/g, '');
+                        return parseFloat(integerPart + '.' + s.slice(-2));
+                    }
+                    // De lo contrario, tratar como entero
+                    let cleaned = s.replace(/[.,]/g, '');
+                    return parseFloat(cleaned);
+                }
+            }
+
+            let price = interpretarPrecio(priceStr);
             if (isNaN(price)) return;
 
-            // Extraer la parte izquierda (nombre del producto y posible cantidad)
-            let leftPart = line.replace(match[0], '').trim();
+            let leftPart = line.replace(priceMatch[0], '').trim();
 
             // Buscar cantidad al inicio (uno o más dígitos seguidos de espacio)
             let qty = 1;
@@ -831,9 +864,8 @@
                 leftPart = leftPart.replace(qtyMatch[0], '').trim();
             }
 
-            // Validar que el nombre del producto tenga al menos 2 caracteres y no parezca una fecha
+            // Validar que el nombre tenga al menos 2 caracteres y no sea una fecha
             if (leftPart.length < 2) return;
-            // Ignorar líneas que parezcan fechas (ej: "20/03/2025")
             if (leftPart.match(/\d{1,2}[/-]\d{1,2}[/-]\d{2,4}/)) return;
 
             scannedItems.push({ qty, name: leftPart, price });
