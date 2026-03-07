@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro Financiero + Escáner (Exportación forzada)</title>
+    <title>Registro Financiero + Escáner (Exportación .txt)</title>
     
     <!-- Meta tags PWA -->
     <meta name="mobile-web-app-capable" content="yes">
@@ -108,7 +108,7 @@
         <div class="menu-card" id="go-to-monthly"><i class="fas fa-calendar-alt"></i><h3>Registro Mensual</h3><p>Visualiza y edita todos los datos organizados por mes</p></div>
         <div class="menu-card" id="go-to-scanner"><i class="fas fa-camera"></i><h3>Escaneo</h3><p>Escanea tickets y agrégalos al registro diario</p></div>
         <div class="menu-card" id="go-to-export"><i class="fas fa-file-export"></i><h3>Exportar Datos</h3><p>Guarda una copia de seguridad (.txt)</p></div>
-        <div class="menu-card" id="go-to-import"><i class="fas fa-file-import"></i><h3>Importar Datos</h3><p>Recupera información desde un archivo .txt</p></div>
+        <div class="menu-card" id="go-to-import"><i class="fas fa-file-import"></i><h3>Importar Datos</h3><p>Recupera información desde un archivo .txt o .json</p></div>
         <div class="menu-card" id="go-to-settings"><i class="fas fa-cog"></i><h3>Configuración</h3><p>Personaliza la aplicación a tus preferencias</p></div>
         <div class="menu-card" id="go-to-help"><i class="fas fa-question-circle"></i><h3>Ayuda</h3><p>Guías y soporte para usar la aplicación</p></div>
     </div>
@@ -216,15 +216,15 @@
         </div>
     </div>
 
-    <!-- SECCIÓN IMPORTAR -->
+    <!-- SECCIÓN IMPORTAR (acepta .txt y .json) -->
     <div id="import-section" class="hidden">
         <div class="section-title"><h2 class="text-xl font-bold dark:text-white">Importar Datos</h2><button id="back-from-import" class="flex items-center"><i class="fas fa-arrow-left mr-2"></i> Volver</button></div>
         <div class="bg-white p-4 rounded-lg shadow-md dark:bg-gray-800">
             <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center dark:border-gray-600">
                 <i class="fas fa-file-import text-4xl text-blue-500 mb-3"></i>
-                <p class="text-sm text-gray-500 mb-4 dark:text-gray-400">Selecciona un archivo .txt con respaldo de datos</p>
+                <p class="text-sm text-gray-500 mb-4 dark:text-gray-400">Selecciona un archivo .txt o .json con respaldo de datos</p>
                 <button id="select-import-file" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"><i class="fas fa-folder-open mr-2"></i> Seleccionar Archivo</button>
-                <input type="file" id="import-file-input" class="hidden" accept=".txt">
+                <input type="file" id="import-file-input" class="hidden" accept=".txt,.json">
             </div>
         </div>
     </div>
@@ -538,39 +538,23 @@
     document.getElementById('add-row').addEventListener('click', () => { dailyDataForDay.rows.push({ account:'', value:'', notes:'' }); saveDaily(); renderDailyTable(); });
     document.getElementById('remove-row').addEventListener('click', () => { if (dailyDataForDay.rows.length>1) dailyDataForDay.rows.pop(); else dailyDataForDay.rows[0] = { account:'', value:'', notes:'' }; saveDaily(); renderDailyTable(); });
 
-    // ========== EXPORTACIÓN CORREGIDA: FORZAR DESCARGA ==========
+    // ========== EXPORTACIÓN A .txt (FORZANDO DESCARGA) ==========
     function downloadTXT(data, baseFilename) {
         const jsonStr = JSON.stringify(data, null, 2);
-        // Usamos text/plain para que sea tratado como texto, pero con download attribute debería forzar descarga
-        const blob = new Blob([jsonStr], { type: 'text/plain' });
+        // Usamos application/octet-stream para forzar descarga
+        const blob = new Blob([jsonStr], { type: 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         let filename = baseFilename;
         if (!filename.endsWith('.txt')) filename += '.txt';
-        link.download = filename; // Atributo clave para forzar descarga
+        link.download = filename;
         document.body.appendChild(link);
-        // Pequeño retraso para asegurar que el DOM esté listo
+        link.click();
         setTimeout(() => {
-            link.click();
-            // Eliminar el enlace después del clic
-            setTimeout(() => {
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-            }, 100);
-        }, 50);
-    }
-
-    // Fallback: si el navegador soporta navigator.share, ofrecer compartir como alternativa
-    function shareOrDownload(data, filename) {
-        if (navigator.canShare && navigator.canShare({ files: [new File([JSON.stringify(data, null, 2)], filename, { type: 'text/plain' })] })) {
-            navigator.share({
-                title: 'Respaldo Registro Financiero',
-                files: [new File([JSON.stringify(data, null, 2)], filename, { type: 'text/plain' })]
-            }).catch(() => downloadTXT(data, filename));
-        } else {
-            downloadTXT(data, filename);
-        }
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }, 100);
     }
 
     document.getElementById('export-all-btn').addEventListener('click', () => {
@@ -589,10 +573,9 @@
         const year = today.getFullYear();
         const month = String(today.getMonth() + 1).padStart(2, '0');
         const day = String(today.getDate()).padStart(2, '0');
-        const filename = `backup-${year}-${month}-${day}.txt`;
-        // Intenta compartir primero, si no, descarga
-        shareOrDownload(allData, filename);
-        showToast('Exportación iniciada');
+        const filename = `backup-${year}-${month}-${day}`; // sin extensión, se agrega en downloadTXT
+        downloadTXT(allData, filename);
+        showToast('Exportación completada');
     });
 
     document.getElementById('export-selected-btn').addEventListener('click', () => {
@@ -620,12 +603,11 @@
         let filename = 'backup';
         if (year) filename += `-${year}`;
         if (month) filename += `-${String(parseInt(month)+1).padStart(2,'0')}`;
-        filename += '.txt';
-        shareOrDownload(filtered, filename);
-        showToast('Exportación iniciada');
+        downloadTXT(filtered, filename);
+        showToast('Exportación completada');
     });
 
-    // ========== IMPORTACIÓN ==========
+    // ========== IMPORTACIÓN (acepta .txt y .json) ==========
     const selectImportFile = document.getElementById('select-import-file');
     const importFileInput = document.getElementById('import-file-input');
     const importPreviewModal = document.getElementById('import-preview-modal');
@@ -763,7 +745,7 @@
         setTimeout(() => { t.classList.add('opacity-0'); setTimeout(() => t.classList.add('hidden'), 500); }, 3000);
     }
 
-    // ========== ESCÁNER MEJORADO ==========
+    // ========== ESCÁNER CORREGIDO ==========
     const scannerModal = document.getElementById('scanner-modal');
     const openScanner = document.getElementById('open-scanner-btn');
     const closeScanner = document.getElementById('close-scanner-modal');
@@ -816,6 +798,7 @@
         });
     }
 
+    // Parser mejorado (maneja puntos de miles y negativos)
     function parseTicketMejorado(text) {
         scannedItems = [];
         const lines = text.split('\n');
@@ -824,11 +807,18 @@
             if (!priceMatch) return;
 
             let priceStr = priceMatch[1];
+            // Detectar último separador (decimal)
             let lastDot = priceStr.lastIndexOf('.');
             let lastComma = priceStr.lastIndexOf(',');
             let lastSeparatorPos = -1;
-            if (lastDot > lastComma) lastSeparatorPos = lastDot;
-            else if (lastComma > lastDot) lastSeparatorPos = lastComma;
+            let decimalSeparator = '';
+            if (lastDot > lastComma) {
+                lastSeparatorPos = lastDot;
+                decimalSeparator = '.';
+            } else if (lastComma > lastDot) {
+                lastSeparatorPos = lastComma;
+                decimalSeparator = ',';
+            }
 
             let price;
             if (lastSeparatorPos !== -1) {
@@ -866,7 +856,9 @@
             const idx = e.target.dataset.index;
             const fld = e.target.dataset.field;
             let val = e.target.value;
-            if (fld === 'qty' || fld === 'price') val = parseFloat(val) || 0;
+            if (fld === 'qty' || fld === 'price') {
+                val = parseFloat(val) || 0;
+            }
             if (scannedItems[idx]) scannedItems[idx][fld] = val;
             let newTotal = scannedItems.reduce((acc, it) => acc + it.qty * it.price, 0);
             scannerTotalSpan.textContent = newTotal.toFixed(2);
