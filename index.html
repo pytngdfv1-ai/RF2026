@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro Financiero + Escáner (Exportación mejorada)</title>
+    <title>Registro Financiero + Escáner (Corrección final)</title>
     
     <!-- Meta tags PWA -->
     <meta name="mobile-web-app-capable" content="yes">
@@ -15,7 +15,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="msapplication-starturl" content="/">
     
-    <!-- Iconos PWA -->
+    <!-- Iconos PWA (rutas relativas) -->
     <link rel="icon" href="icons/icon-72x72.png" sizes="72x72">
     <link rel="icon" href="icons/icon-96x96.png" sizes="96x96">
     <link rel="icon" href="icons/icon-128x128.png" sizes="128x128">
@@ -31,7 +31,7 @@
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     
     <style>
-        /* Estilos completos (sin cambios) */
+        /* Estilos completos (sin cambios, pero los incluyo por integridad) */
         .data-input { transition: all 0.2s; border-bottom: 1px solid #e2e8f0; }
         .dark .data-input { border-bottom: 1px solid #4b5563; color: #e5e7eb; }
         .data-input:focus { outline: none; border-bottom: 1px solid #3b82f6; }
@@ -538,46 +538,22 @@
     document.getElementById('add-row').addEventListener('click', () => { dailyDataForDay.rows.push({ account:'', value:'', notes:'' }); saveDaily(); renderDailyTable(); });
     document.getElementById('remove-row').addEventListener('click', () => { if (dailyDataForDay.rows.length>1) dailyDataForDay.rows.pop(); else dailyDataForDay.rows[0] = { account:'', value:'', notes:'' }; saveDaily(); renderDailyTable(); });
 
-    // ========== EXPORTACIÓN MEJORADA: USA FILE PICKER SI ESTÁ DISPONIBLE ==========
-    async function downloadJSON(data, suggestedName) {
-        const jsonStr = JSON.stringify(data, null, 2);
-        const blob = new Blob([jsonStr], { type: 'application/json' });
-        
-        // Verificar si el API de File System Access está disponible (Chrome, Edge, etc.)
-        if ('showSaveFilePicker' in window) {
-            try {
-                const fileHandle = await window.showSaveFilePicker({
-                    suggestedName: suggestedName,
-                    types: [{
-                        description: 'Archivo JSON',
-                        accept: { 'application/json': ['.json'] }
-                    }]
-                });
-                const writable = await fileHandle.createWritable();
-                await writable.write(blob);
-                await writable.close();
-                showToast('Archivo guardado correctamente');
-                return;
-            } catch (err) {
-                // Usuario canceló o hubo error, pasamos al método tradicional
-                console.log('File picker cancelado o falló, usando método alternativo');
-            }
-        }
-        
-        // Método tradicional: crear enlace y simular clic
+    // ========== EXPORTACIÓN OPTIMIZADA PARA ANDROID ==========
+    function downloadFile(content, filename, mimeType) {
+        // Crear blob y enlace de descarga
+        const blob = new Blob([content], { type: mimeType });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = suggestedName;
-        link.style.display = 'none';
+        link.download = filename;
+        // Importante: agregar al DOM y simular clic
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        showToast('Descarga iniciada (revisa tu carpeta de Descargas)');
     }
 
-    document.getElementById('export-all-btn').addEventListener('click', async () => {
+    document.getElementById('export-all-btn').addEventListener('click', () => {
         const allData = {};
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
@@ -591,14 +567,15 @@
         }
         const date = new Date().toISOString().slice(0,10);
         const filename = `backup-${date}.json`;
-        await downloadJSON(allData, filename);
+        const jsonStr = JSON.stringify(allData, null, 2);
+        downloadFile(jsonStr, filename, 'application/json');
+        showToast('Exportación iniciada');
     });
 
-    document.getElementById('export-selected-btn').addEventListener('click', async () => {
+    document.getElementById('export-selected-btn').addEventListener('click', () => {
         const month = document.getElementById('export-month-select').value;
         const year = document.getElementById('export-year-select').value;
         if (!month && !year) {
-            // Si no hay filtros, exportar todo
             document.getElementById('export-all-btn').click();
             return;
         }
@@ -621,7 +598,9 @@
         if (year) filename += `-${year}`;
         if (month) filename += `-${String(parseInt(month)+1).padStart(2,'0')}`;
         filename += '.json';
-        await downloadJSON(filtered, filename);
+        const jsonStr = JSON.stringify(filtered, null, 2);
+        downloadFile(jsonStr, filename, 'application/json');
+        showToast('Exportación iniciada');
     });
 
     // ========== IMPORTACIÓN ==========
@@ -762,7 +741,7 @@
         setTimeout(() => { t.classList.add('opacity-0'); setTimeout(() => t.classList.add('hidden'), 500); }, 3000);
     }
 
-    // ========== ESCÁNER (con soporte para negativos) ==========
+    // ========== ESCÁNER MEJORADO: NEGATIVOS Y PRECISIÓN ==========
     const scannerModal = document.getElementById('scanner-modal');
     const openScanner = document.getElementById('open-scanner-btn');
     const closeScanner = document.getElementById('close-scanner-modal');
@@ -796,7 +775,9 @@
         if (!file) return;
         const canvas = await preprocessImage(file);
         const result = await Tesseract.recognize(canvas, 'spa');
-        parseTicketMejorado(result.data.text);
+        const text = result.data.text;
+        console.log("OCR raw:", text); // Para depuración
+        parseTicketPreciso(text);
         renderScannedTable();
     });
 
@@ -815,30 +796,47 @@
         });
     }
 
-    function parseTicketMejorado(text) {
+    // Parser de alta precisión: soporta negativos y evita falsos positivos
+    function parseTicketPreciso(text) {
         scannedItems = [];
         const lines = text.split('\n');
+        
         lines.forEach(line => {
-            // Busca un número con posible signo negativo al final, con formato de precio (dos decimales)
-            const priceMatch = line.match(/(-?\d{1,3}(?:[.,]?\d{3})*[.,]\d{2})\s*$/);
-            if (!priceMatch) return;
+            // Limpiar la línea: eliminar espacios extras
+            line = line.trim();
+            if (line.length === 0) return;
 
-            let priceStr = priceMatch[1];
-            // Normalizar: eliminar puntos de miles y cambiar coma por punto
-            priceStr = priceStr.replace(/\./g, '').replace(',', '.');
+            // Buscar un número con formato de precio al final de la línea
+            // Patrón: opcional signo negativo, luego dígitos (con posibles separadores de miles), luego coma o punto, luego exactamente dos dígitos
+            const priceRegex = /(-?\d{1,3}(?:[.,]?\d{3})*[.,]\d{2})\s*$/;
+            const match = line.match(priceRegex);
+            if (!match) return;
+
+            let priceStr = match[1];
+            // Normalizar: eliminar todos los puntos (separadores de miles) y luego cambiar la última coma por punto
+            // Ejemplo: "1.234,56" -> "1234,56" -> "1234.56"
+            priceStr = priceStr.replace(/\./g, ''); // quita puntos de miles
+            priceStr = priceStr.replace(',', '.');  // última coma a punto
             let price = parseFloat(priceStr);
             if (isNaN(price)) return;
 
-            let left = line.replace(priceMatch[0], '').trim();
+            // Extraer la parte izquierda (nombre del producto y posible cantidad)
+            let leftPart = line.replace(match[0], '').trim();
+
+            // Buscar cantidad al inicio (uno o más dígitos seguidos de espacio)
             let qty = 1;
-            const qtyMatch = left.match(/^(\d+)\s*/);
+            const qtyMatch = leftPart.match(/^(\d+)\s+/);
             if (qtyMatch) {
                 qty = parseInt(qtyMatch[1]);
-                left = left.replace(qtyMatch[0], '').trim();
+                leftPart = leftPart.replace(qtyMatch[0], '').trim();
             }
-            if (left.length > 1) {
-                scannedItems.push({ qty, name: left, price });
-            }
+
+            // Validar que el nombre del producto tenga al menos 2 caracteres y no parezca una fecha
+            if (leftPart.length < 2) return;
+            // Ignorar líneas que parezcan fechas (ej: "20/03/2025")
+            if (leftPart.match(/\d{1,2}[/-]\d{1,2}[/-]\d{2,4}/)) return;
+
+            scannedItems.push({ qty, name: leftPart, price });
         });
     }
 
@@ -848,7 +846,7 @@
             total += it.qty * it.price;
             html += `<div class="scanner-row"><span class="scanner-item-index">${i+1}</span><input class="scanner-qty" value="${it.qty}" data-index="${i}" data-field="qty"><input value="${it.name}" data-index="${i}" data-field="name"><input class="scanner-price" value="${it.price.toFixed(2)}" data-index="${i}" data-field="price"></div>`;
         });
-        scannerTable.innerHTML = html || '<p class="text-gray-500 text-center py-4">Sin productos detectados</p>';
+        scannerTable.innerHTML = html || '<p class="text-gray-500 text-center py-4">No se detectaron productos válidos</p>';
         scannerTotalSpan.textContent = total.toFixed(2);
 
         document.querySelectorAll('.scanner-row input').forEach(inp => inp.addEventListener('input', (e) => {
@@ -865,7 +863,7 @@
     }
 
     scannerInsert.addEventListener('click', () => {
-        if (!scannedItems.length) { showToast('No hay productos', true); return; }
+        if (!scannedItems.length) { showToast('No hay productos para insertar', true); return; }
         const dateStr = scannerDate.value;
         if (!dateStr) return;
         const [y, m, d] = dateStr.split('-').map(Number);
