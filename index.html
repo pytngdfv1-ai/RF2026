@@ -31,7 +31,7 @@
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     
     <style>
-        /* ========== ESTILOS COMPLETOS (sin cambios) ========== */
+        /* ========== ESTILOS COMPLETOS ========== */
         .data-input { transition: all 0.2s; border-bottom: 1px solid #e2e8f0; }
         .dark .data-input { border-bottom: 1px solid #4b5563; color: #e5e7eb; }
         .data-input:focus { outline: none; border-bottom: 1px solid #3b82f6; }
@@ -538,28 +538,21 @@
     document.getElementById('add-row').addEventListener('click', () => { dailyDataForDay.rows.push({ account:'', value:'', notes:'' }); saveDaily(); renderDailyTable(); });
     document.getElementById('remove-row').addEventListener('click', () => { if (dailyDataForDay.rows.length>1) dailyDataForDay.rows.pop(); else dailyDataForDay.rows[0] = { account:'', value:'', notes:'' }; saveDaily(); renderDailyTable(); });
 
-    // ========== EXPORTACIÓN MEJORADA PARA ANDROID ==========
+    // ========== EXPORTACIÓN SIMPLE Y CONFIABLE ==========
     function downloadJSON(data, filename) {
         const jsonStr = JSON.stringify(data, null, 2);
-        // Usar application/octet-stream para forzar descarga
-        const blob = new Blob([jsonStr], { type: 'application/octet-stream' });
+        const blob = new Blob([jsonStr], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
-        
-        // Intentar con window.open (funciona en muchos WebViews)
-        const newWindow = window.open(url, '_blank');
-        if (!newWindow) {
-            // Si fue bloqueado, usar el método de enlace
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = filename;
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
             document.body.removeChild(link);
-        }
-        
-        // Liberar memoria después de un tiempo
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+            URL.revokeObjectURL(url);
+        }, 100);
     }
 
     document.getElementById('export-all-btn').addEventListener('click', () => {
